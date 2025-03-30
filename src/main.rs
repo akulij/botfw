@@ -1,7 +1,7 @@
 use teloxide::prelude::*;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>>{
     let bot = Bot::from_env();
 
     teloxide::repl(bot, |bot: Bot, msg: Message| async move {
@@ -9,4 +9,6 @@ async fn main() {
         Ok(())
     })
     .await;
+
+    Ok(())
 }
