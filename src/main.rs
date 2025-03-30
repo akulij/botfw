@@ -10,6 +10,7 @@ struct Config {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>>{
     dotenvy::dotenv()?;
+    let config = Config::init_from_env()?;
 
     let bot = Bot::from_env();
 
