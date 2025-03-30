@@ -1,4 +1,11 @@
 use teloxide::prelude::*;
+use envconfig::Envconfig;
+
+#[derive(Envconfig)]
+struct Config {
+    #[envconfig(from = "BOT_TOKEN")]
+    pub bot_token: String,
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>>{
