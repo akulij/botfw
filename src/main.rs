@@ -1,7 +1,7 @@
 pub mod db;
 use crate::db::DB;
 
-use teloxide::{dispatching::dialogue::GetChatId, payloads::SendMessageSetters, prelude::*, utils::{command::BotCommands, render::RenderMessageTextHelper}};
+use teloxide::{dispatching::dialogue::GetChatId, payloads::SendMessageSetters, prelude::*, types::InputFile, utils::{command::BotCommands, render::RenderMessageTextHelper}};
 use envconfig::Envconfig;
 
 #[derive(Envconfig)]
@@ -38,6 +38,19 @@ enum SecretCommands {
 enum AdminCommands {
     /// Shows your ID.
     MyId,
+    /// Pin replied message
+    Pin,
+}
+
+trait LogMsg {
+    fn log(self) -> Self;
+}
+
+impl LogMsg for <teloxide::Bot as teloxide::prelude::Requester>::SendMessage {
+    fn log(self) -> Self {
+        println!("msg: {}", self.text);
+        self
+    }
 }
 
 #[tokio::main]
@@ -50,7 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
 
     let handler = dptree::entry()
         .inspect(|u: Update| {
-            //eprintln!("{u:#?}"); // Print the update to the console with inspect
+            eprintln!("{u:#?}"); // Print the update to the console with inspect
         })
         .branch(
             Update::filter_message()
@@ -93,6 +106,10 @@ async fn user_command_handler(
     let user = db.get_or_init_user(msg.from.clone().unwrap().id.0 as i64);
     println!("MSG: {}", msg.html_text().unwrap());
     match cmd {
+        UserCommands::Start => {
+            bot.send_photo(msg.chat.id, InputFile::file_id("AgACAgIAAxkBAANRZ-2EJWUdkgwG4tfJfNwut4bssVkAAunyMRvTJ2FLn4FTtVdyfOoBAAMCAANzAAM2BA")).await?;
+            Ok(())
+        },
         UserCommands::Help => {
             bot.send_message(msg.chat.id, UserCommands::descriptions().to_string()).await?;
             Ok(())
@@ -139,9 +156,17 @@ async fn admin_command_handler(
     println!("MSG: {}", msg.html_text().unwrap());
     match cmd {
         AdminCommands::MyId => {
-            bot.send_message(msg.chat.id, format!("Your ID is: {}", tguser.id)).await?;
+            bot.send_message(msg.chat.id, format!("Your ID is: {}", tguser.id)).log().await?;
             Ok(())
-        }
+        },
+        AdminCommands::Pin => {
+            if let Some(msg_to_pin) = msg.reply_to_message() {
+                bot.pin_chat_message(msg.chat.id, msg_to_pin.id).await?;
+            } else {
+                bot.send_message(msg.chat.id, "you need to reply to some message with this command").log().await?;
+            }
+            Ok(())
+        },
         _ => {
             bot.send_message(msg.chat.id, "Not yet implemented").await?;
             Ok(())
@@ -153,6 +178,9 @@ async fn echo(
     bot: Bot,
     msg: Message,
 ) -> Result<(), teloxide::RequestError> {
-    bot.send_message(msg.chat.id, msg.html_text().unwrap()).parse_mode(teloxide::types::ParseMode::Html).await?;
+    if let Some(photo) = msg.photo() {
+        println!("File ID: {}", photo[0].file.id);
+    }
+    bot.send_message(msg.chat.id, msg.html_text().unwrap_or("UNWRAP".into())).parse_mode(teloxide::types::ParseMode::Html).await?;
     Ok(())
 }
