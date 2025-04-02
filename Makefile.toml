@@ -1,0 +1,4 @@
+[tasks.gen-models]
+install_crate = "diesel_cli_ext"
+command = "sh"
+args = ["-c", "diesel_ext --model -t > src/db/models.rs"]
