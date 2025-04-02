@@ -137,7 +137,7 @@ async fn secret_command_handler(
             if user.is_admin == true {
                 bot.send_message(msg.from.unwrap().id, "You are an admin already").await?;
             } else if pass == admin_password {
-                db.make_admin(user.id).await;
+                db.set_admin(user.id, true).await;
                 bot.send_message(msg.from.unwrap().id, "You are admin now!").await?;
             }
             Ok(())

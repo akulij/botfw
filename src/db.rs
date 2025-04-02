@@ -37,14 +37,14 @@ impl DB {
         users.filter(id.gt(0)).load::<User>(&mut conn).await.unwrap()
     }
 
-    pub async fn make_admin(&mut self, userid: i64) {
+    pub async fn set_admin(&mut self, userid: i64, isadmin: bool) {
         use self::schema::users::dsl::*;
         let connection = &mut self.pool.get().await.unwrap();
         //diesel::update(users).filter(id.eq(userid)).set(is_admin.eq(true)).execute(connection);
         //diesel::update(users).filter(id.eq(userid)).set(is_admin.eq(true)).load(connection).await.unwrap();
         diesel::update(users)
             .filter(id.eq(userid))
-            .set(is_admin.eq(true))
+            .set(is_admin.eq(isadmin))
             .execute(connection).await.unwrap();
     }
 
