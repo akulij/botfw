@@ -3,6 +3,16 @@ use teloxide::{dispatching::dialogue::GetChatId, payloads::SendMessageSetters, p
 use crate::db::DB;
 use crate::LogMsg;
 
+// These are should not appear in /help
+#[derive(BotCommands, Clone)]
+#[command(rename_rule = "lowercase")]
+pub enum SecretCommands {
+    /// Activate admin mode
+    Secret {
+        pass: String
+    },
+}
+
 #[derive(BotCommands, Clone)]
 #[command(rename_rule = "lowercase")]
 pub enum AdminCommands {
@@ -40,5 +50,29 @@ pub async fn admin_command_handler(
             bot.send_message(msg.chat.id, "You are not an admin anymore").await?;
             Ok(())
         }
+    }
+}
+
+pub async fn secret_command_handler(
+    mut db: DB,
+    //config: Config,
+    bot: Bot,
+    msg: Message,
+    cmd: SecretCommands,
+    admin_password: String
+) -> Result<(), teloxide::RequestError> {
+    println!("Admin Pass: {}", admin_password);
+    let user = db.get_or_init_user(msg.from.clone().unwrap().id.0 as i64).await;
+    println!("MSG: {}", msg.html_text().unwrap());
+    match cmd {
+        SecretCommands::Secret { pass } => {
+            if user.is_admin == true {
+                bot.send_message(msg.from.unwrap().id, "You are an admin already").await?;
+            } else if pass == admin_password {
+                db.set_admin(user.id, true).await;
+                bot.send_message(msg.from.unwrap().id, "You are admin now!").await?;
+            }
+            Ok(())
+        },
     }
 }

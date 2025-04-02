@@ -3,6 +3,7 @@ pub mod admin;
 
 use crate::db::DB;
 use crate::admin::{AdminCommands, admin_command_handler};
+use crate::admin::{secret_command_handler, SecretCommands};
 
 use teloxide::{dispatching::dialogue::GetChatId, payloads::SendMessageSetters, prelude::*, types::InputFile, utils::{command::BotCommands, render::RenderMessageTextHelper}};
 use envconfig::Envconfig;
@@ -24,16 +25,6 @@ enum UserCommands {
     Start,
     /// Shows this message.
     Help,
-}
-
-// These are should not appear in /help
-#[derive(BotCommands, Clone)]
-#[command(rename_rule = "lowercase")]
-enum SecretCommands {
-    /// Activate admin mode
-    Secret {
-        pass: String
-    },
 }
 
 trait LogMsg {
@@ -112,30 +103,6 @@ async fn user_command_handler(
             bot.send_message(msg.chat.id, "Not yet implemented").await?;
             Ok(())
         }
-    }
-}
-
-async fn secret_command_handler(
-    mut db: DB,
-    //config: Config,
-    bot: Bot,
-    msg: Message,
-    cmd: SecretCommands,
-    admin_password: String
-) -> Result<(), teloxide::RequestError> {
-    println!("Admin Pass: {}", admin_password);
-    let user = db.get_or_init_user(msg.from.clone().unwrap().id.0 as i64).await;
-    println!("MSG: {}", msg.html_text().unwrap());
-    match cmd {
-        SecretCommands::Secret { pass } => {
-            if user.is_admin == true {
-                bot.send_message(msg.from.unwrap().id, "You are an admin already").await?;
-            } else if pass == admin_password {
-                db.set_admin(user.id, true).await;
-                bot.send_message(msg.from.unwrap().id, "You are admin now!").await?;
-            }
-            Ok(())
-        },
     }
 }
 
