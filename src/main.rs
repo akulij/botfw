@@ -7,7 +7,6 @@ use crate::db::DB;
 
 use envconfig::Envconfig;
 use teloxide::{
-    dispatching::dialogue::GetChatId,
     payloads::SendMessageSetters,
     prelude::*,
     types::InputFile,
