@@ -1,12 +1,18 @@
-pub mod db;
 pub mod admin;
+pub mod db;
 
-use crate::db::DB;
 use crate::admin::{AdminCommands, admin_command_handler};
-use crate::admin::{secret_command_handler, SecretCommands};
+use crate::admin::{SecretCommands, secret_command_handler};
+use crate::db::DB;
 
-use teloxide::{dispatching::dialogue::GetChatId, payloads::SendMessageSetters, prelude::*, types::InputFile, utils::{command::BotCommands, render::RenderMessageTextHelper}};
 use envconfig::Envconfig;
+use teloxide::{
+    dispatching::dialogue::GetChatId,
+    payloads::SendMessageSetters,
+    prelude::*,
+    types::InputFile,
+    utils::{command::BotCommands, render::RenderMessageTextHelper},
+};
 
 #[derive(Envconfig)]
 struct Config {
@@ -39,7 +45,7 @@ impl LogMsg for <teloxide::Bot as teloxide::prelude::Requester>::SendMessage {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>>{
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv()?;
     let config = Config::init_from_env()?;
 
@@ -52,25 +58,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
         })
         .branch(
             Update::filter_message()
-            .branch(
-                dptree::entry().filter_command::<UserCommands>().endpoint(user_command_handler)
-            )
-            .branch(
-                dptree::entry().filter_command::<SecretCommands>()
-                    .map(move || config.admin_password.clone())
-                    .endpoint(secret_command_handler)
-            )
-            .branch(
-                dptree::entry().filter_async(async |msg: Message, mut db: DB| {
-                    let user = db.get_or_init_user(msg.from.unwrap().id.0 as i64).await;
-                    user.is_admin
-                }).filter_command::<AdminCommands>().endpoint(admin_command_handler)
-            )
+                .branch(
+                    dptree::entry()
+                        .filter_command::<UserCommands>()
+                        .endpoint(user_command_handler),
+                )
+                .branch(
+                    dptree::entry()
+                        .filter_command::<SecretCommands>()
+                        .map(move || config.admin_password.clone())
+                        .endpoint(secret_command_handler),
+                )
+                .branch(
+                    dptree::entry()
+                        .filter_async(async |msg: Message, mut db: DB| {
+                            let user = db.get_or_init_user(msg.from.unwrap().id.0 as i64).await;
+                            user.is_admin
+                        })
+                        .filter_command::<AdminCommands>()
+                        .endpoint(admin_command_handler),
+                ),
         )
-        .branch(
-            Update::filter_message().endpoint(echo)
-        )
-        ;
+        .branch(Update::filter_message().endpoint(echo));
 
     Dispatcher::builder(bot, handler)
         .dependencies(dptree::deps![db])
@@ -94,11 +103,12 @@ async fn user_command_handler(
         UserCommands::Start => {
             bot.send_photo(msg.chat.id, InputFile::file_id("AgACAgIAAxkBAANRZ-2EJWUdkgwG4tfJfNwut4bssVkAAunyMRvTJ2FLn4FTtVdyfOoBAAMCAANzAAM2BA")).await?;
             Ok(())
-        },
+        }
         UserCommands::Help => {
-            bot.send_message(msg.chat.id, UserCommands::descriptions().to_string()).await?;
+            bot.send_message(msg.chat.id, UserCommands::descriptions().to_string())
+                .await?;
             Ok(())
-        },
+        }
         _ => {
             bot.send_message(msg.chat.id, "Not yet implemented").await?;
             Ok(())
@@ -106,13 +116,12 @@ async fn user_command_handler(
     }
 }
 
-async fn echo(
-    bot: Bot,
-    msg: Message,
-) -> Result<(), teloxide::RequestError> {
+async fn echo(bot: Bot, msg: Message) -> Result<(), teloxide::RequestError> {
     if let Some(photo) = msg.photo() {
         println!("File ID: {}", photo[0].file.id);
     }
-    bot.send_message(msg.chat.id, msg.html_text().unwrap_or("UNWRAP".into())).parse_mode(teloxide::types::ParseMode::Html).await?;
+    bot.send_message(msg.chat.id, msg.html_text().unwrap_or("UNWRAP".into()))
+        .parse_mode(teloxide::types::ParseMode::Html)
+        .await?;
     Ok(())
 }
