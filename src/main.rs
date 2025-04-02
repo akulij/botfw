@@ -56,29 +56,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .inspect(|u: Update| {
             eprintln!("{u:#?}"); // Print the update to the console with inspect
         })
-        .branch(
-            Update::filter_message()
-                .branch(
-                    dptree::entry()
-                        .filter_command::<UserCommands>()
-                        .endpoint(user_command_handler),
-                )
-                .branch(
-                    dptree::entry()
-                        .filter_command::<SecretCommands>()
-                        .map(move || config.admin_password.clone())
-                        .endpoint(secret_command_handler),
-                )
-                .branch(
-                    dptree::entry()
-                        .filter_async(async |msg: Message, mut db: DB| {
-                            let user = db.get_or_init_user(msg.from.unwrap().id.0 as i64).await;
-                            user.is_admin
-                        })
-                        .filter_command::<AdminCommands>()
-                        .endpoint(admin_command_handler),
-                ),
-        )
+        .branch(command_handler(config))
         .branch(Update::filter_message().endpoint(echo));
 
     Dispatcher::builder(bot, handler)
@@ -89,6 +67,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await;
 
     Ok(())
+}
+
+fn command_handler(config: Config) -> Handler<'static, DependencyMap, Result<(), teloxide::RequestError>, teloxide::dispatching::DpHandlerDescription> {
+    Update::filter_message()
+        .branch(
+            dptree::entry()
+                .filter_command::<UserCommands>()
+                .endpoint(user_command_handler),
+        )
+        .branch(
+            dptree::entry()
+                .filter_command::<SecretCommands>()
+                .map(move || config.admin_password.clone())
+                .endpoint(secret_command_handler),
+        )
+        .branch(
+            dptree::entry()
+                .filter_async(async |msg: Message, mut db: DB| {
+                    let user = db.get_or_init_user(msg.from.unwrap().id.0 as i64).await;
+                    user.is_admin
+                })
+                .filter_command::<AdminCommands>()
+                .endpoint(admin_command_handler),
+        )
 }
 
 async fn user_command_handler(
