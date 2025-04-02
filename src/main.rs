@@ -40,6 +40,8 @@ enum AdminCommands {
     MyId,
     /// Pin replied message
     Pin,
+    /// Removes your admin privileges
+    Deop,
 }
 
 trait LogMsg {
@@ -152,7 +154,6 @@ async fn admin_command_handler(
     cmd: AdminCommands,
 ) -> Result<(), teloxide::RequestError> {
     let tguser = msg.from.clone().unwrap();
-    let user = db.get_or_init_user(tguser.id.0 as i64);
     println!("MSG: {}", msg.html_text().unwrap());
     match cmd {
         AdminCommands::MyId => {
@@ -167,8 +168,9 @@ async fn admin_command_handler(
             }
             Ok(())
         },
-        _ => {
-            bot.send_message(msg.chat.id, "Not yet implemented").await?;
+        AdminCommands::Deop => {
+            db.set_admin(tguser.id.0 as i64, false).await;
+            bot.send_message(msg.chat.id, "You are not an admin anymore").await?;
             Ok(())
         }
     }
