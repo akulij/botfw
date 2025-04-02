@@ -34,7 +34,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
     let config = Config::init_from_env()?;
 
     let bot = Bot::new(&config.bot_token);
-    let db = DB::new(&config.db_url);
+    let db = DB::new(&config.db_url).await;
 
     let handler = dptree::entry()
         .inspect(|u: Update| {
@@ -46,8 +46,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
                 dptree::entry().filter_command::<UserCommands>().endpoint(user_command_handler)
             )
             .branch(
-                dptree::entry().filter(|msg: Message, mut db: DB| {
-                    let user = db.get_or_init_user(msg.from.unwrap().id.0 as i64);
+                dptree::entry().filter_async(async |msg: Message, mut db: DB| {
+                    let user = db.get_or_init_user(msg.from.unwrap().id.0 as i64).await;
                     user.is_admin
                 }).filter_command::<AdminCommands>().endpoint(admin_command_handler)
             )
