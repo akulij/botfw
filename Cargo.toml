@@ -6,8 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-diesel = { version = "2.2.8", features = ["postgres", "r2d2"] }
-diesel-async = { version = "0.5.2", features = ["bb8", "deadpool", "postgres", "r2d2"] }
+diesel = { version = "2.2.8", features = ["postgres"] }
+diesel-async = { version = "0.5.2", features = ["bb8", "postgres"] }
 dotenvy = "0.15.7"
 envconfig = "0.11.0"
 teloxide = { version = "0.14.0", features = ["macros"] }
