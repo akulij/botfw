@@ -1,0 +1,4 @@
+ALTER TABLE users
+ALTER COLUMN id TYPE integer;
+ALTER TABLE users
+ADD COLUMN user_id BIGINT NOT NULL;
