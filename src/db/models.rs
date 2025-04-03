@@ -3,10 +3,21 @@
 #![allow(unused)]
 #![allow(clippy::all)]
 
+
 use diesel::prelude::*;
+#[derive(Queryable, Debug)]
+#[diesel(table_name = messages)]
+pub struct Message {
+    pub id: i32,
+    pub chat_id: i64,
+    pub message_id: i64,
+    pub token: String,
+}
+
 #[derive(Queryable, Debug)]
 #[diesel(table_name = users)]
 pub struct User {
     pub id: i64,
     pub is_admin: bool,
 }
+
