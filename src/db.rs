@@ -135,4 +135,38 @@ impl DB {
 
         Ok(())
     }
+
+    async fn get_literal(&mut self, literal: &str) -> Result<Option<Literal>, Box<dyn std::error::Error>> {
+        use self::schema::literals::dsl::*;
+        let conn = &mut self.pool.get().await.unwrap();
+
+        let literal = literals
+            .filter(token.eq(literal))
+            .first::<Literal>(conn)
+            .await
+            .optional()?;
+
+        Ok(literal)
+    }
+
+    async fn get_literal_value(&mut self, literal: &str) -> Result<Option<String>, Box<dyn std::error::Error>> {
+        let literal = self.get_literal(literal).await?;
+
+        Ok(literal.map(|l| l.value))
+    }
+
+    async fn set_literal(&mut self, literal: &str, valuestr: &str) -> Result<(), Box<dyn std::error::Error>> {
+        use self::schema::literals::dsl::*;
+        let conn = &mut self.pool.get().await.unwrap();
+
+        diesel::insert_into(literals)
+            .values((token.eq(literal), value.eq(valuestr)))
+            .on_conflict(token)
+            .do_update()
+            .set(value.eq(valuestr))
+            .execute(conn)
+            .await?;
+
+        Ok(())
+    }
 }
