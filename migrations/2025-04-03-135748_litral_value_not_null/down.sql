@@ -1,0 +1,2 @@
+ALTER TABLE literals
+ALTER COLUMN value DROP NOT NULL;

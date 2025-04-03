@@ -1,0 +1,2 @@
+ALTER TABLE literals
+ALTER COLUMN value SET NOT NULL;

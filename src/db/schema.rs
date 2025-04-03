@@ -5,7 +5,7 @@ diesel::table! {
         id -> Int4,
         #[max_length = 255]
         token -> Varchar,
-        value -> Nullable<Text>,
+        value -> Text,
     }
 }
 
@@ -26,4 +26,8 @@ diesel::table! {
     }
 }
 
-diesel::allow_tables_to_appear_in_same_query!(literals, messages, users,);
+diesel::allow_tables_to_appear_in_same_query!(
+    literals,
+    messages,
+    users,
+);
