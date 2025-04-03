@@ -6,6 +6,14 @@
 
 use diesel::prelude::*;
 #[derive(Queryable, Debug)]
+#[diesel(table_name = literals)]
+pub struct Literal {
+    pub id: i32,
+    pub token: String,
+    pub value: Option<String>,
+}
+
+#[derive(Queryable, Debug)]
 #[diesel(table_name = messages)]
 pub struct Message {
     pub id: i32,

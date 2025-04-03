@@ -1,6 +1,15 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
+    literals (id) {
+        id -> Int4,
+        #[max_length = 255]
+        token -> Varchar,
+        value -> Nullable<Text>,
+    }
+}
+
+diesel::table! {
     messages (id) {
         id -> Int4,
         chat_id -> Int8,
@@ -18,6 +27,7 @@ diesel::table! {
 }
 
 diesel::allow_tables_to_appear_in_same_query!(
+    literals,
     messages,
     users,
 );
