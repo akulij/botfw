@@ -3,7 +3,6 @@
 #![allow(unused)]
 #![allow(clippy::all)]
 
-
 use diesel::prelude::*;
 #[derive(Queryable, Debug)]
 #[diesel(table_name = literals)]
@@ -28,4 +27,3 @@ pub struct User {
     pub id: i64,
     pub is_admin: bool,
 }
-

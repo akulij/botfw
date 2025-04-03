@@ -75,7 +75,11 @@ impl DB {
         }
     }
 
-    pub async fn get_message(&mut self, chatid: i64, messageid: i32) -> Result<Option<Message>, Box<dyn std::error::Error>> {
+    pub async fn get_message(
+        &mut self,
+        chatid: i64,
+        messageid: i32,
+    ) -> Result<Option<Message>, Box<dyn std::error::Error>> {
         use self::schema::messages::dsl::*;
         let conn = &mut self.pool.get().await.unwrap();
 
@@ -89,15 +93,24 @@ impl DB {
         Ok(msg)
     }
 
-    pub async fn get_message_literal(&mut self, chatid: i64, messageid: i32) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    pub async fn get_message_literal(
+        &mut self,
+        chatid: i64,
+        messageid: i32,
+    ) -> Result<Option<String>, Box<dyn std::error::Error>> {
         let msg = self.get_message(chatid, messageid).await?;
         Ok(msg.map(|m| m.token))
     }
 
-    pub async fn set_message_literal(&mut self, chatid: i64, messageid: i32, literal: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn set_message_literal(
+        &mut self,
+        chatid: i64,
+        messageid: i32,
+        literal: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         use self::schema::messages::dsl::*;
         let conn = &mut self.pool.get().await?;
-        
+
         let msg = self.clone().get_message(chatid, messageid).await?;
 
         match msg {
@@ -107,19 +120,18 @@ impl DB {
                     .set(token.eq(literal))
                     .execute(conn)
                     .await?;
-            },
+            }
             None => {
                 diesel::insert_into(messages)
                     .values((
                         chat_id.eq(chatid),
                         message_id.eq(messageid as i64),
-                        token.eq(literal)
+                        token.eq(literal),
                     ))
                     .execute(conn)
                     .await?;
             }
         };
-
 
         Ok(())
     }
