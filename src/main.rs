@@ -56,6 +56,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             eprintln!("{u:#?}"); // Print the update to the console with inspect
         })
         .branch(command_handler(config))
+        .branch(Update::filter_message()
+            .filter_async(async |msg: Message, mut db: DB| {
+                let user = db.get_or_init_user(msg.from.unwrap().id.0 as i64).await;
+                user.is_admin
+            })
+            .filter(|msg: Message| msg == "edit")
+            .endpoint(edit_msg_handler)
+        )
         .branch(Update::filter_message().endpoint(echo));
 
     Dispatcher::builder(bot, handler)
@@ -65,6 +73,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .dispatch()
         .await;
 
+    Ok(())
+}
+
+async fn edit_msg_handler(bot: Bot, msg: Message) -> Result<(), teloxide::RequestError> {
+    match msg.reply_to_message() {
+        Some(replied) => {
+            let msgid = replied.id;
+            // look for message in db and set text
+        },
+        None => {
+            bot.send_message(msg.chat.id, "You have to reply to message to edit it").await?;
+        }
+    };
     Ok(())
 }
 
