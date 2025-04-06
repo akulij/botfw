@@ -138,13 +138,13 @@ impl DB {
         Ok(literal)
     }
 
-    async fn get_literal_value(&mut self, literal: &str) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    pub async fn get_literal_value(&mut self, literal: &str) -> Result<Option<String>, Box<dyn std::error::Error>> {
         let literal = self.get_literal(literal).await?;
 
         Ok(literal.map(|l| l.value))
     }
 
-    async fn set_literal(&mut self, literal: &str, valuestr: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn set_literal(&mut self, literal: &str, valuestr: &str) -> Result<(), Box<dyn std::error::Error>> {
         use self::schema::literals::dsl::*;
         let conn = &mut self.pool.get().await.unwrap();
 

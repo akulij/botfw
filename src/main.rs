@@ -6,12 +6,17 @@ use crate::admin::{SecretCommands, secret_command_handler};
 use crate::db::DB;
 
 use envconfig::Envconfig;
+use serde::{Deserialize, Serialize};
+use teloxide::dispatching::dialogue::serializer::Json;
+use teloxide::dispatching::dialogue::{InMemStorage, PostgresStorage};
 use teloxide::{
     payloads::SendMessageSetters,
     prelude::*,
     types::InputFile,
     utils::{command::BotCommands, render::RenderMessageTextHelper},
 };
+
+type BotDialogue = Dialogue<State, PostgresStorage<Json>>;
 
 #[derive(Envconfig)]
 struct Config {
@@ -43,6 +48,16 @@ impl LogMsg for <teloxide::Bot as teloxide::prelude::Requester>::SendMessage {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+pub enum State {
+    #[default]
+    Start,
+    Edit {
+        literal: String,
+        lang:    String,
+    },
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv()?;
@@ -50,6 +65,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let bot = Bot::new(&config.bot_token);
     let db = DB::new(&config.db_url).await;
+    let db_url2 = config.db_url.clone();
+    let state_mgr = PostgresStorage::open(&db_url2, 8, Json).await?;
 
     let handler = dptree::entry()
         .inspect(|u: Update| {
@@ -62,13 +79,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let user = db.get_or_init_user(msg.from.unwrap().id.0 as i64).await;
                     user.is_admin
                 })
-                .filter(|msg: Message| msg == "edit")
-                .endpoint(edit_msg_handler),
+                .enter_dialogue::<Message, PostgresStorage<Json>, State>()
+                .branch(
+                    Update::filter_message()
+                        .filter(|msg: Message| msg.text().unwrap_or("") == "edit")
+                        .endpoint(edit_msg_cmd_handler),
+                )
+                .branch(
+                    dptree::case![State::Edit { literal, lang }].endpoint(edit_msg_handler),
+                )
         )
         .branch(Update::filter_message().endpoint(echo));
 
     Dispatcher::builder(bot, handler)
-        .dependencies(dptree::deps![db])
+        .dependencies(dptree::deps![db, state_mgr])
         .enable_ctrlc_handler()
         .build()
         .dispatch()
@@ -77,17 +101,43 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn edit_msg_handler(bot: Bot, msg: Message) -> Result<(), teloxide::RequestError> {
+async fn edit_msg_cmd_handler(bot: Bot, mut db: DB, dialogue: BotDialogue, msg: Message) -> Result<(), teloxide::RequestError> {
     match msg.reply_to_message() {
         Some(replied) => {
             let msgid = replied.id;
             // look for message in db and set text
+            let literal = match db.get_message_literal(msg.chat.id.0, msgid.0).await.unwrap() {
+                Some(l) => l,
+                None => {
+                    bot.send_message(msg.chat.id, "No such message found to edit. Look if you replying bot's message and this message is supposed to be editable").await?;
+                    return Ok(())
+                }
+            };
+            // TODO: language selector will be implemented in future 😈
+            let lang = "ru".to_string();
+            dialogue.update(State::Edit { literal, lang }).await.unwrap();
+            bot.send_message(msg.chat.id, "Ok, now you have to send message text (formatting supported)").await?;
         }
         None => {
             bot.send_message(msg.chat.id, "You have to reply to message to edit it")
                 .await?;
         }
     };
+    Ok(())
+}
+
+async fn edit_msg_handler(bot: Bot, mut db: DB, dialogue: BotDialogue, (literal, lang): (String, String), msg: Message) -> Result<(), teloxide::RequestError> {
+    match msg.html_text() {
+        Some(text) => {
+            db.set_literal(&literal, &text).await.unwrap();
+            bot.send_message(msg.chat.id, "Updated text of message!").await.unwrap();
+            dialogue.exit().await.unwrap();
+        },
+        None => {
+            bot.send_message(msg.chat.id, "Send text!").await.unwrap();
+        }
+    }
+
     Ok(())
 }
 
@@ -128,20 +178,19 @@ async fn user_command_handler(
     msg: Message,
     cmd: UserCommands,
 ) -> Result<(), teloxide::RequestError> {
-    let user = db.get_or_init_user(msg.from.clone().unwrap().id.0 as i64);
+    let user = db.get_or_init_user(msg.from.clone().unwrap().id.0 as i64).await;
     println!("MSG: {}", msg.html_text().unwrap());
     match cmd {
         UserCommands::Start => {
-            bot.send_photo(msg.chat.id, InputFile::file_id("AgACAgIAAxkBAANRZ-2EJWUdkgwG4tfJfNwut4bssVkAAunyMRvTJ2FLn4FTtVdyfOoBAAMCAANzAAM2BA")).await?;
+            let literal = "start";
+            let text = db.get_literal_value(literal).await.unwrap().unwrap_or("Please, set content of this message".into());
+            let msg = bot.send_message(msg.chat.id, text).parse_mode(teloxide::types::ParseMode::Html).await?;
+            db.set_message_literal(msg.chat.id.0, msg.id.0, literal).await.unwrap();
             Ok(())
         }
         UserCommands::Help => {
             bot.send_message(msg.chat.id, UserCommands::descriptions().to_string())
                 .await?;
-            Ok(())
-        }
-        _ => {
-            bot.send_message(msg.chat.id, "Not yet implemented").await?;
             Ok(())
         }
     }
