@@ -1,8 +1,8 @@
 pub mod admin;
 pub mod db;
 
-use crate::admin::{AdminCommands, admin_command_handler};
-use crate::admin::{SecretCommands, secret_command_handler};
+use crate::admin::{admin_command_handler, AdminCommands};
+use crate::admin::{secret_command_handler, SecretCommands};
 use crate::db::DB;
 
 use envconfig::Envconfig;
@@ -54,7 +54,7 @@ pub enum State {
     Start,
     Edit {
         literal: String,
-        lang:    String,
+        lang: String,
     },
 }
 
@@ -85,9 +85,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .filter(|msg: Message| msg.text().unwrap_or("") == "edit")
                         .endpoint(edit_msg_cmd_handler),
                 )
-                .branch(
-                    dptree::case![State::Edit { literal, lang }].endpoint(edit_msg_handler),
-                )
+                .branch(dptree::case![State::Edit { literal, lang }].endpoint(edit_msg_handler)),
         )
         .branch(Update::filter_message().endpoint(echo));
 
@@ -101,22 +99,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn edit_msg_cmd_handler(bot: Bot, mut db: DB, dialogue: BotDialogue, msg: Message) -> Result<(), teloxide::RequestError> {
+async fn edit_msg_cmd_handler(
+    bot: Bot,
+    mut db: DB,
+    dialogue: BotDialogue,
+    msg: Message,
+) -> Result<(), teloxide::RequestError> {
     match msg.reply_to_message() {
         Some(replied) => {
             let msgid = replied.id;
             // look for message in db and set text
-            let literal = match db.get_message_literal(msg.chat.id.0, msgid.0).await.unwrap() {
+            let literal = match db
+                .get_message_literal(msg.chat.id.0, msgid.0)
+                .await
+                .unwrap()
+            {
                 Some(l) => l,
                 None => {
                     bot.send_message(msg.chat.id, "No such message found to edit. Look if you replying bot's message and this message is supposed to be editable").await?;
-                    return Ok(())
+                    return Ok(());
                 }
             };
             // TODO: language selector will be implemented in future 😈
             let lang = "ru".to_string();
-            dialogue.update(State::Edit { literal, lang }).await.unwrap();
-            bot.send_message(msg.chat.id, "Ok, now you have to send message text (formatting supported)").await?;
+            dialogue
+                .update(State::Edit { literal, lang })
+                .await
+                .unwrap();
+            bot.send_message(
+                msg.chat.id,
+                "Ok, now you have to send message text (formatting supported)",
+            )
+            .await?;
         }
         None => {
             bot.send_message(msg.chat.id, "You have to reply to message to edit it")
@@ -126,13 +140,21 @@ async fn edit_msg_cmd_handler(bot: Bot, mut db: DB, dialogue: BotDialogue, msg: 
     Ok(())
 }
 
-async fn edit_msg_handler(bot: Bot, mut db: DB, dialogue: BotDialogue, (literal, lang): (String, String), msg: Message) -> Result<(), teloxide::RequestError> {
+async fn edit_msg_handler(
+    bot: Bot,
+    mut db: DB,
+    dialogue: BotDialogue,
+    (literal, lang): (String, String),
+    msg: Message,
+) -> Result<(), teloxide::RequestError> {
     match msg.html_text() {
         Some(text) => {
             db.set_literal(&literal, &text).await.unwrap();
-            bot.send_message(msg.chat.id, "Updated text of message!").await.unwrap();
+            bot.send_message(msg.chat.id, "Updated text of message!")
+                .await
+                .unwrap();
             dialogue.exit().await.unwrap();
-        },
+        }
         None => {
             bot.send_message(msg.chat.id, "Send text!").await.unwrap();
         }
@@ -178,14 +200,25 @@ async fn user_command_handler(
     msg: Message,
     cmd: UserCommands,
 ) -> Result<(), teloxide::RequestError> {
-    let user = db.get_or_init_user(msg.from.clone().unwrap().id.0 as i64).await;
+    let user = db
+        .get_or_init_user(msg.from.clone().unwrap().id.0 as i64)
+        .await;
     println!("MSG: {}", msg.html_text().unwrap());
     match cmd {
         UserCommands::Start => {
             let literal = "start";
-            let text = db.get_literal_value(literal).await.unwrap().unwrap_or("Please, set content of this message".into());
-            let msg = bot.send_message(msg.chat.id, text).parse_mode(teloxide::types::ParseMode::Html).await?;
-            db.set_message_literal(msg.chat.id.0, msg.id.0, literal).await.unwrap();
+            let text = db
+                .get_literal_value(literal)
+                .await
+                .unwrap()
+                .unwrap_or("Please, set content of this message".into());
+            let msg = bot
+                .send_message(msg.chat.id, text)
+                .parse_mode(teloxide::types::ParseMode::Html)
+                .await?;
+            db.set_message_literal(msg.chat.id.0, msg.id.0, literal)
+                .await
+                .unwrap();
             Ok(())
         }
         UserCommands::Help => {

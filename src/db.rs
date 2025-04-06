@@ -5,10 +5,10 @@ use crate::Config;
 use self::models::*;
 
 use diesel::prelude::*;
+use diesel_async::pooled_connection::bb8::Pool;
+use diesel_async::pooled_connection::AsyncDieselConnectionManager;
 use diesel_async::AsyncPgConnection;
 use diesel_async::RunQueryDsl;
-use diesel_async::pooled_connection::AsyncDieselConnectionManager;
-use diesel_async::pooled_connection::bb8::Pool;
 
 #[derive(Clone)]
 pub struct DB {
@@ -125,7 +125,10 @@ impl DB {
         Ok(())
     }
 
-    async fn get_literal(&mut self, literal: &str) -> Result<Option<Literal>, Box<dyn std::error::Error>> {
+    async fn get_literal(
+        &mut self,
+        literal: &str,
+    ) -> Result<Option<Literal>, Box<dyn std::error::Error>> {
         use self::schema::literals::dsl::*;
         let conn = &mut self.pool.get().await.unwrap();
 
@@ -138,13 +141,20 @@ impl DB {
         Ok(literal)
     }
 
-    pub async fn get_literal_value(&mut self, literal: &str) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    pub async fn get_literal_value(
+        &mut self,
+        literal: &str,
+    ) -> Result<Option<String>, Box<dyn std::error::Error>> {
         let literal = self.get_literal(literal).await?;
 
         Ok(literal.map(|l| l.value))
     }
 
-    pub async fn set_literal(&mut self, literal: &str, valuestr: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn set_literal(
+        &mut self,
+        literal: &str,
+        valuestr: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         use self::schema::literals::dsl::*;
         let conn = &mut self.pool.get().await.unwrap();
 

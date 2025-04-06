@@ -3,8 +3,8 @@ use teloxide::{
     utils::{command::BotCommands, render::RenderMessageTextHelper},
 };
 
-use crate::LogMsg;
 use crate::db::DB;
+use crate::LogMsg;
 
 // These are should not appear in /help
 #[derive(BotCommands, Clone)]
