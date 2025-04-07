@@ -1,6 +1,13 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
+    events (id) {
+        id -> Int4,
+        time -> Timestamp,
+    }
+}
+
+diesel::table! {
     literals (id) {
         id -> Int4,
         #[max_length = 255]
@@ -20,10 +27,47 @@ diesel::table! {
 }
 
 diesel::table! {
-    users (id) {
-        id -> Int8,
-        is_admin -> Bool,
+    reservations (id) {
+        id -> Int4,
+        user_id -> Nullable<Int4>,
+        #[max_length = 255]
+        entered_name -> Nullable<Varchar>,
+        booked_time -> Timestamp,
+        event_id -> Nullable<Int4>,
+        status -> Varchar,
     }
 }
 
-diesel::allow_tables_to_appear_in_same_query!(literals, messages, users,);
+diesel::table! {
+    teloxide_dialogues (chat_id) {
+        chat_id -> Int8,
+        dialogue -> Bytea,
+    }
+}
+
+diesel::table! {
+    users (id) {
+        id -> Int8,
+        is_admin -> Bool,
+        #[max_length = 255]
+        first_name -> Varchar,
+        #[max_length = 255]
+        last_name -> Nullable<Varchar>,
+        #[max_length = 255]
+        username -> Nullable<Varchar>,
+        #[max_length = 10]
+        language_code -> Nullable<Varchar>,
+    }
+}
+
+diesel::joinable!(reservations -> events (event_id));
+diesel::joinable!(reservations -> users (user_id));
+
+diesel::allow_tables_to_appear_in_same_query!(
+    events,
+    literals,
+    messages,
+    reservations,
+    teloxide_dialogues,
+    users,
+);
