@@ -6,6 +6,8 @@ use crate::admin::{secret_command_handler, SecretCommands};
 use crate::db::DB;
 
 use chrono::{DateTime, Utc};
+use chrono_tz::Asia;
+use db::schema::events;
 use envconfig::Envconfig;
 use serde::{Deserialize, Serialize};
 use teloxide::dispatching::dialogue::serializer::Json;
@@ -231,7 +233,7 @@ async fn user_command_handler(
                 .unwrap_or("Please, set content of this message".into());
             let msg = bot
                 .send_message(msg.chat.id, text)
-                .reply_markup(make_start_buttons())
+                .reply_markup(make_start_buttons(&mut db).await)
                 .parse_mode(teloxide::types::ParseMode::Html)
                 .await?;
             db.set_message_literal(msg.chat.id.0, msg.id.0, literal)
@@ -247,13 +249,12 @@ async fn user_command_handler(
     }
 }
 
-fn make_start_buttons() -> InlineKeyboardMarkup {
-    let mut buttons = vec![
-        vec![
-            InlineKeyboardButton::callback("Button 1", "callback_data_1"),
-            InlineKeyboardButton::callback("Button 2", "callback_data_2"),
-        ],
-    ];
+async fn make_start_buttons(db: &mut DB) -> InlineKeyboardMarkup {
+    let mut buttons: Vec<Vec<InlineKeyboardButton>> = db.get_all_events().await.iter()
+        .map(|e| vec![InlineKeyboardButton::callback(
+                e.time.with_timezone(&Asia::Dubai).to_string(),
+                format!("event:{}", e.id)
+            )]).collect();
     buttons.push(vec![InlineKeyboardButton::callback("More info", "more_info")]);
 
     InlineKeyboardMarkup::new(buttons)
