@@ -3,8 +3,17 @@
 #![allow(unused)]
 #![allow(clippy::all)]
 
+
+use chrono::NaiveDateTime;
 use diesel::prelude::*;
-#[derive(Queryable, Debug)]
+#[derive(Queryable, Debug, Identifiable)]
+#[diesel(table_name = events)]
+pub struct Event {
+    pub id: i32,
+    pub time: NaiveDateTime,
+}
+
+#[derive(Queryable, Debug, Identifiable)]
 #[diesel(table_name = literals)]
 pub struct Literal {
     pub id: i32,
@@ -12,7 +21,7 @@ pub struct Literal {
     pub value: String,
 }
 
-#[derive(Queryable, Debug)]
+#[derive(Queryable, Debug, Identifiable)]
 #[diesel(table_name = messages)]
 pub struct Message {
     pub id: i32,
@@ -21,9 +30,33 @@ pub struct Message {
     pub token: String,
 }
 
+#[derive(Queryable, Debug, Identifiable)]
+#[diesel(table_name = reservations)]
+pub struct Reservation {
+    pub id: i32,
+    pub user_id: Option<i32>,
+    pub entered_name: Option<String>,
+    pub booked_time: NaiveDateTime,
+    pub event_id: Option<i32>,
+    pub status: String,
+}
+
+#[derive(Queryable, Debug, Identifiable)]
+#[diesel(primary_key(chat_id))]
+#[diesel(table_name = teloxide_dialogues)]
+pub struct TeloxideDialogue {
+    pub chat_id: i64,
+    pub dialogue: Vec<u8>,
+}
+
 #[derive(Queryable, Debug)]
 #[diesel(table_name = users)]
 pub struct User {
     pub id: i64,
     pub is_admin: bool,
+    pub first_name: String,
+    pub last_name: Option<String>,
+    pub username: Option<String>,
+    pub language_code: Option<String>,
 }
+
