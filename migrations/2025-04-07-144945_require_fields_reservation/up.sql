@@ -1,0 +1,4 @@
+ALTER TABLE reservations
+ALTER COLUMN user_id SET NOT NULL,
+ALTER COLUMN entered_name SET NOT NULL,
+ALTER COLUMN event_id SET NOT NULL;

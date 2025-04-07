@@ -29,11 +29,11 @@ diesel::table! {
 diesel::table! {
     reservations (id) {
         id -> Int4,
-        user_id -> Nullable<Int4>,
+        user_id -> Int8,
         #[max_length = 255]
-        entered_name -> Nullable<Varchar>,
+        entered_name -> Varchar,
         booked_time -> Timestamp,
-        event_id -> Nullable<Int4>,
+        event_id -> Int4,
         status -> Varchar,
     }
 }

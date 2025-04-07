@@ -34,7 +34,7 @@ pub struct Message {
 #[diesel(table_name = reservations)]
 pub struct Reservation {
     pub id: i32,
-    pub user_id: Option<i32>,
+    pub user_id: Option<i64>,
     pub entered_name: Option<String>,
     pub booked_time: NaiveDateTime,
     pub event_id: Option<i32>,
