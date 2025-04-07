@@ -6,12 +6,14 @@
 use crate::db::schema::*;
 
 use chrono::NaiveDateTime;
+use chrono::DateTime;
+use chrono::offset::Utc;
 use diesel::prelude::*;
 #[derive(Queryable, Debug, Identifiable)]
 #[diesel(table_name = events)]
 pub struct Event {
     pub id: i32,
-    pub time: NaiveDateTime,
+    pub time: DateTime<Utc>,
 }
 
 #[derive(Queryable, Debug, Identifiable)]

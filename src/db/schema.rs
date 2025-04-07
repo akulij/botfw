@@ -3,7 +3,7 @@
 diesel::table! {
     events (id) {
         id -> Int4,
-        time -> Timestamp,
+        time -> Timestamptz,
     }
 }
 
