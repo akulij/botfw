@@ -1,11 +1,5 @@
 // @generated automatically by Diesel CLI.
 
-pub mod sql_types {
-    #[derive(diesel::query_builder::QueryId, Clone, diesel::sql_types::SqlType)]
-    #[diesel(postgres_type(name = "reservation_status"))]
-    pub struct ReservationStatus;
-}
-
 diesel::table! {
     events (id) {
         id -> Int4,
@@ -33,9 +27,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    use diesel::sql_types::*;
-    use super::sql_types::ReservationStatus;
-
     reservations (id) {
         id -> Int4,
         user_id -> Nullable<Int4>,
@@ -43,7 +34,7 @@ diesel::table! {
         entered_name -> Nullable<Varchar>,
         booked_time -> Timestamp,
         event_id -> Nullable<Int4>,
-        status -> ReservationStatus,
+        status -> Varchar,
     }
 }
 
