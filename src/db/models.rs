@@ -3,6 +3,7 @@
 #![allow(unused)]
 #![allow(clippy::all)]
 
+use crate::db::schema::*;
 
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
@@ -34,10 +35,10 @@ pub struct Message {
 #[diesel(table_name = reservations)]
 pub struct Reservation {
     pub id: i32,
-    pub user_id: Option<i64>,
-    pub entered_name: Option<String>,
+    pub user_id: i64,
+    pub entered_name: String,
     pub booked_time: NaiveDateTime,
-    pub event_id: Option<i32>,
+    pub event_id: i32,
     pub status: String,
 }
 
