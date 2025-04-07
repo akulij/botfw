@@ -9,6 +9,24 @@ use diesel_async::pooled_connection::bb8::Pool;
 use diesel_async::pooled_connection::AsyncDieselConnectionManager;
 use diesel_async::AsyncPgConnection;
 use diesel_async::RunQueryDsl;
+use enum_stringify::EnumStringify;
+
+#[derive(EnumStringify)]
+#[enum_stringify(case = "flat")]
+pub enum ReservationStatus {
+    Booked,
+    Paid,
+}
+
+pub trait GetReservationStatus {
+    fn get_status(&self) -> Option<ReservationStatus>;
+}
+
+impl GetReservationStatus for models::Reservation {
+    fn get_status(&self) -> Option<ReservationStatus> {
+        ReservationStatus::try_from(self.status.clone()).ok()
+    }
+}
 
 #[derive(Clone)]
 pub struct DB {
