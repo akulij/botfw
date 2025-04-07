@@ -5,6 +5,7 @@ use crate::admin::{admin_command_handler, AdminCommands};
 use crate::admin::{secret_command_handler, SecretCommands};
 use crate::db::DB;
 
+use chrono::{DateTime, Utc};
 use envconfig::Envconfig;
 use serde::{Deserialize, Serialize};
 use teloxide::dispatching::dialogue::serializer::Json;
@@ -71,7 +72,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 
     // TODO: delete this in production
+    let events: Vec<DateTime<Utc>> = vec![
+        "2025-04-09T18:00:00+04:00",
+        "2025-04-11T16:00:00+04:00",
+    ].iter().map(|d| DateTime::parse_from_rfc3339(d).unwrap().into()).collect();
 
+    for event in events {
+        match db.clone().create_event(event).await {
+            Ok(e) => println!("Created event {}", e.id),
+            Err(err) => println!("Failed to create event, error: {}", err)
+        }
+    }
     //
 
     let handler = dptree::entry()
