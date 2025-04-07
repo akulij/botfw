@@ -5,9 +5,9 @@
 
 use crate::db::schema::*;
 
-use chrono::NaiveDateTime;
-use chrono::DateTime;
 use chrono::offset::Utc;
+use chrono::DateTime;
+use chrono::NaiveDateTime;
 use diesel::prelude::*;
 #[derive(Queryable, Debug, Identifiable)]
 #[diesel(table_name = events)]
@@ -62,4 +62,3 @@ pub struct User {
     pub username: Option<String>,
     pub language_code: Option<String>,
 }
-

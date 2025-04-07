@@ -72,17 +72,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db_url2 = config.db_url.clone();
     let state_mgr = PostgresStorage::open(&db_url2, 8, Json).await?;
 
-
     // TODO: delete this in production
-    let events: Vec<DateTime<Utc>> = vec![
-        "2025-04-09T18:00:00+04:00",
-        "2025-04-11T16:00:00+04:00",
-    ].iter().map(|d| DateTime::parse_from_rfc3339(d).unwrap().into()).collect();
+    let events: Vec<DateTime<Utc>> = vec!["2025-04-09T18:00:00+04:00", "2025-04-11T16:00:00+04:00"]
+        .iter()
+        .map(|d| DateTime::parse_from_rfc3339(d).unwrap().into())
+        .collect();
 
     for event in events {
         match db.clone().create_event(event).await {
             Ok(e) => println!("Created event {}", e.id),
-            Err(err) => println!("Failed to create event, error: {}", err)
+            Err(err) => println!("Failed to create event, error: {}", err),
         }
     }
     //
@@ -250,12 +249,21 @@ async fn user_command_handler(
 }
 
 async fn make_start_buttons(db: &mut DB) -> InlineKeyboardMarkup {
-    let mut buttons: Vec<Vec<InlineKeyboardButton>> = db.get_all_events().await.iter()
-        .map(|e| vec![InlineKeyboardButton::callback(
+    let mut buttons: Vec<Vec<InlineKeyboardButton>> = db
+        .get_all_events()
+        .await
+        .iter()
+        .map(|e| {
+            vec![InlineKeyboardButton::callback(
                 e.time.with_timezone(&Asia::Dubai).to_string(),
-                format!("event:{}", e.id)
-            )]).collect();
-    buttons.push(vec![InlineKeyboardButton::callback("More info", "more_info")]);
+                format!("event:{}", e.id),
+            )]
+        })
+        .collect();
+    buttons.push(vec![InlineKeyboardButton::callback(
+        "More info",
+        "more_info",
+    )]);
 
     InlineKeyboardMarkup::new(buttons)
 }
