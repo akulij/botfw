@@ -1,4 +1,4 @@
 [tasks.models]
 install_crate = "diesel_cli_ext"
 command = "sh"
-args = ["-c", "diesel_ext --model -t > src/db/models.rs"]
+args = ["-c", "diesel_ext -I 'crate::db::schema::*' --model -t > src/db/models.rs"]
