@@ -3,7 +3,7 @@
 
 [print_schema]
 file = "src/db/schema.rs"
-custom_type_derives = ["diesel::query_builder::QueryId", "Clone"]
+custom_type_derives = ["diesel_derive_enum::DbEnum", "diesel::query_builder::QueryId", "Clone"]
 
 [migrations_directory]
 dir = "/Users/akulij/gits/gongbotrs/migrations"

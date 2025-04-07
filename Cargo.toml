@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 diesel = { version = "2.2.8", features = ["postgres"] }
 diesel-async = { version = "0.5.2", features = ["bb8", "postgres"] }
+diesel-derive-enum = "2.1.0"
 dotenvy = "0.15.7"
 envconfig = "0.11.0"
 serde = { version = "1.0.219", features = ["derive", "serde_derive"] }
