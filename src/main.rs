@@ -9,6 +9,7 @@ use envconfig::Envconfig;
 use serde::{Deserialize, Serialize};
 use teloxide::dispatching::dialogue::serializer::Json;
 use teloxide::dispatching::dialogue::{InMemStorage, PostgresStorage};
+use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup};
 use teloxide::{
     payloads::SendMessageSetters,
     prelude::*,
@@ -67,6 +68,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db = DB::new(&config.db_url).await;
     let db_url2 = config.db_url.clone();
     let state_mgr = PostgresStorage::open(&db_url2, 8, Json).await?;
+
+
+    // TODO: delete this in production
+
+    //
 
     let handler = dptree::entry()
         .inspect(|u: Update| {
@@ -214,6 +220,7 @@ async fn user_command_handler(
                 .unwrap_or("Please, set content of this message".into());
             let msg = bot
                 .send_message(msg.chat.id, text)
+                .reply_markup(make_start_buttons())
                 .parse_mode(teloxide::types::ParseMode::Html)
                 .await?;
             db.set_message_literal(msg.chat.id.0, msg.id.0, literal)
@@ -227,6 +234,18 @@ async fn user_command_handler(
             Ok(())
         }
     }
+}
+
+fn make_start_buttons() -> InlineKeyboardMarkup {
+    let mut buttons = vec![
+        vec![
+            InlineKeyboardButton::callback("Button 1", "callback_data_1"),
+            InlineKeyboardButton::callback("Button 2", "callback_data_2"),
+        ],
+    ];
+    buttons.push(vec![InlineKeyboardButton::callback("More info", "more_info")]);
+
+    InlineKeyboardMarkup::new(buttons)
 }
 
 async fn echo(bot: Bot, msg: Message) -> Result<(), teloxide::RequestError> {

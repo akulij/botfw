@@ -4,6 +4,7 @@ use crate::Config;
 
 use self::models::*;
 
+use chrono::Utc;
 use diesel::prelude::*;
 use diesel_async::pooled_connection::bb8::Pool;
 use diesel_async::pooled_connection::AsyncDieselConnectionManager;
@@ -185,5 +186,30 @@ impl DB {
             .await?;
 
         Ok(())
+    }
+
+    pub async fn get_all_events(&mut self) -> Vec<Event> {
+        use self::schema::events::dsl::*;
+        let mut conn = self.pool.get().await.unwrap();
+        events
+            .filter(id.gt(0))
+            .load::<Event>(&mut conn)
+            .await
+            .unwrap()
+    }
+
+    pub async fn create_event(
+        &mut self,
+        event_datetime: chrono::DateTime<Utc>,
+    ) -> Result<Event, Box<dyn std::error::Error>> {
+        use self::schema::events::dsl::*;
+        let conn = &mut self.pool.get().await.unwrap();
+
+        let new_event = diesel::insert_into(events)
+            .values((time.eq(event_datetime),))
+            .get_result::<Event>(conn)
+            .await?;
+
+        Ok(new_event)
     }
 }
