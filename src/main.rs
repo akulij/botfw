@@ -227,7 +227,7 @@ async fn user_command_handler(
             let mut db2 = db.clone();
             answer_message(
                 &bot,
-                &msg,
+                msg.chat.id.0,
                 &mut db,
                 "start",
                 Some(make_start_buttons(&mut db2).await),
@@ -244,7 +244,7 @@ async fn user_command_handler(
 
 async fn answer_message<RM: Into<ReplyMarkup>>(
     bot: &Bot,
-    msg: &Message,
+    chat_id: i64,
     db: &mut DB,
     literal: &str,
     keyboard: Option<RM>,
@@ -254,7 +254,7 @@ async fn answer_message<RM: Into<ReplyMarkup>>(
         .await
         .unwrap()
         .unwrap_or("Please, set content of this message".into());
-    let msg = bot.send_message(msg.chat.id, text);
+    let msg = bot.send_message(ChatId(chat_id), text);
     let msg = match keyboard {
         Some(kbd) => msg.reply_markup(kbd),
         None => msg,
