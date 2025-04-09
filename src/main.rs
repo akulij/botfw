@@ -12,7 +12,7 @@ use envconfig::Envconfig;
 use serde::{Deserialize, Serialize};
 use teloxide::dispatching::dialogue::serializer::Json;
 use teloxide::dispatching::dialogue::{InMemStorage, PostgresStorage};
-use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup};
+use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup, ReplyMarkup};
 use teloxide::{
     payloads::SendMessageSetters,
     prelude::*,
@@ -224,21 +224,15 @@ async fn user_command_handler(
     println!("MSG: {}", msg.html_text().unwrap());
     match cmd {
         UserCommands::Start => {
-            let literal = "start";
-            let text = db
-                .get_literal_value(literal)
-                .await
-                .unwrap()
-                .unwrap_or("Please, set content of this message".into());
-            let msg = bot
-                .send_message(msg.chat.id, text)
-                .reply_markup(make_start_buttons(&mut db).await)
-                .parse_mode(teloxide::types::ParseMode::Html)
-                .await?;
-            db.set_message_literal(msg.chat.id.0, msg.id.0, literal)
-                .await
-                .unwrap();
-            Ok(())
+            let mut db2 = db.clone();
+            answer_message(
+                &bot,
+                &msg,
+                &mut db,
+                "start",
+                Some(make_start_buttons(&mut db2).await),
+            )
+            .await
         }
         UserCommands::Help => {
             bot.send_message(msg.chat.id, UserCommands::descriptions().to_string())
@@ -246,6 +240,30 @@ async fn user_command_handler(
             Ok(())
         }
     }
+}
+
+async fn answer_message<RM: Into<ReplyMarkup>>(
+    bot: &Bot,
+    msg: &Message,
+    db: &mut DB,
+    literal: &str,
+    keyboard: Option<RM>,
+) -> Result<(), teloxide::RequestError> {
+    let text = db
+        .get_literal_value(literal)
+        .await
+        .unwrap()
+        .unwrap_or("Please, set content of this message".into());
+    let msg = bot.send_message(msg.chat.id, text);
+    let msg = match keyboard {
+        Some(kbd) => msg.reply_markup(kbd),
+        None => msg,
+    };
+    let msg = msg.parse_mode(teloxide::types::ParseMode::Html).await?;
+    db.set_message_literal(msg.chat.id.0, msg.id.0, literal)
+        .await
+        .unwrap();
+    Ok(())
 }
 
 async fn make_start_buttons(db: &mut DB) -> InlineKeyboardMarkup {
