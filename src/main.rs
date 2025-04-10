@@ -98,13 +98,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Update::filter_message()
                 .filter_async(async |msg: Message, mut db: DB| {
                     let tguser = msg.from.unwrap();
-                    let user = db.get_or_init_user(tguser.id.0 as i64, &tguser.first_name).await;
+                    let user = db
+                        .get_or_init_user(tguser.id.0 as i64, &tguser.first_name)
+                        .await;
                     user.is_admin
                 })
                 .enter_dialogue::<Message, PostgresStorage<Json>, State>()
                 .branch(
                     Update::filter_message()
-                        .filter(|msg: Message| msg.text().unwrap_or("").to_lowercase().as_str() == "edit")
+                        .filter(|msg: Message| {
+                            msg.text().unwrap_or("").to_lowercase().as_str() == "edit"
+                        })
                         .endpoint(edit_msg_cmd_handler),
                 )
                 .branch(dptree::case![State::Edit { literal, lang }].endpoint(edit_msg_handler)),
@@ -250,7 +254,9 @@ fn command_handler(
             dptree::entry()
                 .filter_async(async |msg: Message, mut db: DB| {
                     let tguser = msg.from.unwrap();
-                    let user = db.get_or_init_user(tguser.id.0 as i64, &tguser.first_name).await;
+                    let user = db
+                        .get_or_init_user(tguser.id.0 as i64, &tguser.first_name)
+                        .await;
                     user.is_admin
                 })
                 .filter_command::<AdminCommands>()
@@ -265,7 +271,9 @@ async fn user_command_handler(
     cmd: UserCommands,
 ) -> Result<(), teloxide::RequestError> {
     let tguser = msg.from.clone().unwrap();
-    let user = db.get_or_init_user(tguser.id.0 as i64, &tguser.first_name).await;
+    let user = db
+        .get_or_init_user(tguser.id.0 as i64, &tguser.first_name)
+        .await;
     println!("MSG: {}", msg.html_text().unwrap());
     match cmd {
         UserCommands::Start => {
@@ -304,7 +312,9 @@ async fn answer_message<RM: Into<ReplyMarkup>>(
         Some(kbd) => msg.reply_markup(kbd),
         None => msg,
     };
-    let msg = msg.parse_mode(teloxide::types::ParseMode::Html).await?;
+    let msg = msg.parse_mode(teloxide::types::ParseMode::Html);
+    println!("ENTS: {:?}", msg.entities);
+    let msg = msg.await?;
     db.set_message_literal(msg.chat.id.0, msg.id.0, literal)
         .await
         .unwrap();

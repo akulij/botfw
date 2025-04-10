@@ -76,7 +76,11 @@ impl DB {
         match user {
             Some(existing_user) => existing_user,
             None => diesel::insert_into(users)
-                .values((id.eq(userid as i64), is_admin.eq(false), first_name.eq(firstname)))
+                .values((
+                    id.eq(userid as i64),
+                    is_admin.eq(false),
+                    first_name.eq(firstname),
+                ))
                 .get_result(connection)
                 .await
                 .unwrap(),
