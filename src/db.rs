@@ -243,8 +243,8 @@ impl DB {
     pub async fn add_media(
         &mut self,
         literal: &str,
-        mediatype: String,
-        fileid: String,
+        mediatype: &str,
+        fileid: &str,
     ) -> Result<Media, Box<dyn std::error::Error>> {
         use self::schema::media::dsl::*;
         let conn = &mut self.pool.get().await.unwrap();
