@@ -216,4 +216,48 @@ impl DB {
 
         Ok(new_event)
     }
+
+    pub async fn get_media(
+        &mut self,
+        literal: &str,
+    ) -> Result<Vec<Media>, Box<dyn std::error::Error>> {
+        use self::schema::media::dsl::*;
+        let conn = &mut self.pool.get().await.unwrap();
+
+        let media_items = media.filter(token.eq(literal)).load::<Media>(conn).await?;
+
+        Ok(media_items)
+    }
+
+    pub async fn drop_media(&mut self, literal: &str) -> Result<usize, Box<dyn std::error::Error>> {
+        use self::schema::media::dsl::*;
+        let conn = &mut self.pool.get().await.unwrap();
+
+        let deleted_count = diesel::delete(media.filter(token.eq(literal)))
+            .execute(conn)
+            .await?;
+
+        Ok(deleted_count)
+    }
+
+    pub async fn add_media(
+        &mut self,
+        literal: &str,
+        mediatype: String,
+        fileid: i64,
+    ) -> Result<Media, Box<dyn std::error::Error>> {
+        use self::schema::media::dsl::*;
+        let conn = &mut self.pool.get().await.unwrap();
+
+        let new_media = diesel::insert_into(media)
+            .values((
+                token.eq(literal),
+                media_type.eq(mediatype),
+                file_id.eq(fileid),
+            ))
+            .get_result::<Media>(conn)
+            .await?;
+
+        Ok(new_media)
+    }
 }
