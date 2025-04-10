@@ -12,7 +12,9 @@ use envconfig::Envconfig;
 use serde::{Deserialize, Serialize};
 use teloxide::dispatching::dialogue::serializer::Json;
 use teloxide::dispatching::dialogue::{GetChatId, InMemStorage, PostgresStorage};
-use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup, ReplyMarkup};
+use teloxide::types::{
+    InlineKeyboardButton, InlineKeyboardMarkup, MediaKind, MessageKind, ReplyMarkup,
+};
 use teloxide::{
     payloads::SendMessageSetters,
     prelude::*,
@@ -195,16 +197,28 @@ async fn edit_msg_handler(
     (literal, lang): (String, String),
     msg: Message,
 ) -> Result<(), teloxide::RequestError> {
-    match msg.html_text() {
-        Some(text) => {
-            db.set_literal(&literal, &text).await.unwrap();
-            bot.send_message(msg.chat.id, "Updated text of message!")
-                .await
-                .unwrap();
+    use teloxide::utils::render::Renderer;
+
+    let chat_id = msg.chat.id;
+    println!("Type: {:#?}", msg.kind);
+    let msg = if let MessageKind::Common(msg) = msg.kind {
+        msg
+    } else {
+        println!("Not a Common, somehow");
+        return Ok(());
+    };
+
+    match msg.media_kind {
+        MediaKind::Text(text) => {
+            let html_text = Renderer::new(&text.text, &text.entities).as_html();
+            db.set_literal(&literal, &html_text).await.unwrap();
+            bot.send_message(chat_id, "Updated text of message!")
+                .await?;
             dialogue.exit().await.unwrap();
         }
-        None => {
-            bot.send_message(msg.chat.id, "Send text!").await.unwrap();
+        _ => {
+            bot.send_message(chat_id, "this type of message is not supported yet")
+                .await?;
         }
     }
 
