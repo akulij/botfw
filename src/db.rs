@@ -261,3 +261,6 @@ impl DB {
         Ok(new_media)
     }
 }
+
+#[cfg(test)]
+mod tests;
