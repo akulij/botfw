@@ -62,7 +62,7 @@ impl DB {
             .unwrap();
     }
 
-    pub async fn get_or_init_user(&mut self, userid: i64) -> User {
+    pub async fn get_or_init_user(&mut self, userid: i64, firstname: &str) -> User {
         use self::schema::users::dsl::*;
         let connection = &mut self.pool.get().await.unwrap();
 
@@ -76,7 +76,7 @@ impl DB {
         match user {
             Some(existing_user) => existing_user,
             None => diesel::insert_into(users)
-                .values((id.eq(userid as i64), is_admin.eq(false)))
+                .values((id.eq(userid as i64), is_admin.eq(false), first_name.eq(firstname)))
                 .get_result(connection)
                 .await
                 .unwrap(),

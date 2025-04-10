@@ -97,7 +97,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .branch(
             Update::filter_message()
                 .filter_async(async |msg: Message, mut db: DB| {
-                    let user = db.get_or_init_user(msg.from.unwrap().id.0 as i64).await;
+                    let tguser = msg.from.unwrap();
+                    let user = db.get_or_init_user(tguser.id.0 as i64, &tguser.first_name).await;
                     user.is_admin
                 })
                 .enter_dialogue::<Message, PostgresStorage<Json>, State>()
@@ -248,7 +249,8 @@ fn command_handler(
         .branch(
             dptree::entry()
                 .filter_async(async |msg: Message, mut db: DB| {
-                    let user = db.get_or_init_user(msg.from.unwrap().id.0 as i64).await;
+                    let tguser = msg.from.unwrap();
+                    let user = db.get_or_init_user(tguser.id.0 as i64, &tguser.first_name).await;
                     user.is_admin
                 })
                 .filter_command::<AdminCommands>()
@@ -262,9 +264,8 @@ async fn user_command_handler(
     msg: Message,
     cmd: UserCommands,
 ) -> Result<(), teloxide::RequestError> {
-    let user = db
-        .get_or_init_user(msg.from.clone().unwrap().id.0 as i64)
-        .await;
+    let tguser = msg.from.clone().unwrap();
+    let user = db.get_or_init_user(tguser.id.0 as i64, &tguser.first_name).await;
     println!("MSG: {}", msg.html_text().unwrap());
     match cmd {
         UserCommands::Start => {

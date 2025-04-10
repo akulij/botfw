@@ -71,9 +71,8 @@ pub async fn secret_command_handler(
     admin_password: String,
 ) -> Result<(), teloxide::RequestError> {
     println!("Admin Pass: {}", admin_password);
-    let user = db
-        .get_or_init_user(msg.from.clone().unwrap().id.0 as i64)
-        .await;
+    let tguser = msg.from.clone().unwrap();
+    let user = db.get_or_init_user(tguser.id.0 as i64, &tguser.first_name).await;
     println!("MSG: {}", msg.html_text().unwrap());
     match cmd {
         SecretCommands::Secret { pass } => {
