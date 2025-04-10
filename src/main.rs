@@ -11,7 +11,7 @@ use db::schema::events;
 use envconfig::Envconfig;
 use serde::{Deserialize, Serialize};
 use teloxide::dispatching::dialogue::serializer::Json;
-use teloxide::dispatching::dialogue::{InMemStorage, PostgresStorage};
+use teloxide::dispatching::dialogue::{GetChatId, InMemStorage, PostgresStorage};
 use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup, ReplyMarkup};
 use teloxide::{
     payloads::SendMessageSetters,
@@ -90,6 +90,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .inspect(|u: Update| {
             eprintln!("{u:#?}"); // Print the update to the console with inspect
         })
+        .branch(Update::filter_callback_query().endpoint(callback_handler))
         .branch(command_handler(config))
         .branch(
             Update::filter_message()
@@ -113,6 +114,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build()
         .dispatch()
         .await;
+
+    Ok(())
+}
+
+async fn callback_handler(
+    bot: Bot,
+    mut db: DB,
+    q: CallbackQuery,
+) -> Result<(), teloxide::RequestError> {
+    bot.answer_callback_query(&q.id).await?;
+
+    if let Some(ref data) = q.data {
+        match data.as_str() {
+            "more_info" => {
+                answer_message(
+                    &bot,
+                    q.chat_id()
+                        .clone()
+                        .map(|i| i.0)
+                        .unwrap_or(q.from.id.0 as i64),
+                    &mut db,
+                    "more_info",
+                    None as Option<InlineKeyboardMarkup>,
+                )
+                .await?
+            }
+            _ => {} // do nothing, yet
+        }
+    }
 
     Ok(())
 }
