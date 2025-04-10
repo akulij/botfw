@@ -244,7 +244,7 @@ impl DB {
         &mut self,
         literal: &str,
         mediatype: String,
-        fileid: i64,
+        fileid: String,
     ) -> Result<Media, Box<dyn std::error::Error>> {
         use self::schema::media::dsl::*;
         let conn = &mut self.pool.get().await.unwrap();
