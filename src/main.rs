@@ -103,7 +103,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .enter_dialogue::<Message, PostgresStorage<Json>, State>()
                 .branch(
                     Update::filter_message()
-                        .filter(|msg: Message| msg.text().unwrap_or("") == "edit")
+                        .filter(|msg: Message| msg.text().unwrap_or("").to_lowercase().as_str() == "edit")
                         .endpoint(edit_msg_cmd_handler),
                 )
                 .branch(dptree::case![State::Edit { literal, lang }].endpoint(edit_msg_handler)),
