@@ -25,6 +25,15 @@ pub struct Literal {
 }
 
 #[derive(Queryable, Debug, Identifiable)]
+#[diesel(table_name = media)]
+pub struct Media {
+    pub id: i32,
+    pub token: String,
+    pub media_type: String,
+    pub file_id: String,
+}
+
+#[derive(Queryable, Debug, Identifiable)]
 #[diesel(table_name = messages)]
 pub struct Message {
     pub id: i32,

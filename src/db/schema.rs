@@ -17,6 +17,15 @@ diesel::table! {
 }
 
 diesel::table! {
+    media (id) {
+        id -> Int4,
+        token -> Varchar,
+        media_type -> Varchar,
+        file_id -> Varchar,
+    }
+}
+
+diesel::table! {
     messages (id) {
         id -> Int4,
         chat_id -> Int8,
@@ -66,6 +75,7 @@ diesel::joinable!(reservations -> users (user_id));
 diesel::allow_tables_to_appear_in_same_query!(
     events,
     literals,
+    media,
     messages,
     reservations,
     teloxide_dialogues,
