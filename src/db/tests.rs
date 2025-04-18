@@ -16,31 +16,29 @@ async fn setup_db() -> DB {
 async fn test_get_media() {
     let mut db = setup_db().await;
 
-    let result = db.drop_media("test_get_media_literal").await;
-    assert!(result.is_ok());
+    let result = db.drop_media("test_get_media_literal").await.unwrap();
 
     let media_items = db.get_media("test_get_media_literal").await.unwrap();
     assert_eq!(media_items.len(), 0);
 
     let result = db
         .add_media("test_get_media_literal", "photo", "file_id_1")
-        .await;
-    assert!(result.is_ok());
+        .await
+        .unwrap();
 
     let media_items = db.get_media("test_get_media_literal").await.unwrap();
     assert_eq!(media_items.len(), 1);
 
     let result = db
         .add_media("test_get_media_literal", "video", "file_id_2")
-        .await;
-    assert!(result.is_ok());
+        .await
+        .unwrap();
 
     let media_items = db.get_media("test_get_media_literal").await.unwrap();
     assert_eq!(media_items.len(), 2);
 
     // Clean up after test
-    let result = db.drop_media("test_get_media_literal").await;
-    assert!(result.is_ok());
+    let result = db.drop_media("test_get_media_literal").await.unwrap();
 }
 
 #[tokio::test]
@@ -51,11 +49,9 @@ async fn test_add_media() {
     let media_type = "photo";
     let file_id = "LjaldhAOh";
 
-    let result = db.drop_media(literal).await;
-    assert!(result.is_ok());
+    let result = db.drop_media(literal).await.unwrap();
 
-    let result = db.add_media(literal, media_type, file_id).await;
-    assert!(result.is_ok());
+    let result = db.add_media(literal, media_type, file_id).await.unwrap();
 
     // Verify that the media was added is correct
     let media_items = db.get_media(literal).await.unwrap();
@@ -65,8 +61,7 @@ async fn test_add_media() {
     assert_eq!(media_items[0].file_id, file_id);
 
     // Clean up after test
-    let result = db.drop_media(literal).await;
-    assert!(result.is_ok());
+    let result = db.drop_media(literal).await.unwrap();
 }
 
 #[tokio::test]
@@ -75,21 +70,19 @@ async fn test_drop_media() {
 
     let result = db
         .add_media("test_drop_media_literal", "photo", "file_id_1")
-        .await;
-    assert!(result.is_ok());
+        .await
+        .unwrap();
 
     // Verify that the media was added
     let media_items = db.get_media("test_drop_media_literal").await.unwrap();
     assert_eq!(media_items.len(), 1);
 
-    let result = db.drop_media("test_drop_media_literal").await;
-    assert!(result.is_ok());
+    let result = db.drop_media("test_drop_media_literal").await.unwrap();
 
     // Verify that the media has been dropped
     let media_items = db.get_media("test_drop_media_literal").await.unwrap();
     assert_eq!(media_items.len(), 0);
 
     // Clean up after test
-    let result = db.drop_media("test_drop_media_literal").await;
-    assert!(result.is_ok());
+    let result = db.drop_media("test_drop_media_literal").await.unwrap();
 }
