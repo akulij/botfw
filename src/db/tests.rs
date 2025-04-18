@@ -89,3 +89,31 @@ async fn test_drop_media() {
     // Clean up after test
     let result = db.drop_media("test_drop_media_literal").await.unwrap();
 }
+
+#[tokio::test]
+async fn test_is_media_group_exists() {
+    let mut db = setup_db().await;
+
+    let media_group = "test_media_group";
+
+    let exists = db.is_media_group_exists(media_group).await.unwrap();
+    assert!(!exists);
+
+    let _ = db
+        .add_media(
+            "test_media_group_literal",
+            "photo",
+            "file_id_1",
+            Some(media_group),
+        )
+        .await
+        .unwrap();
+
+    let exists = db.is_media_group_exists(media_group).await.unwrap();
+    assert!(exists);
+
+    let _ = db.drop_media("test_media_group_literal").await.unwrap();
+
+    let exists = db.is_media_group_exists(media_group).await.unwrap();
+    assert!(!exists);
+}

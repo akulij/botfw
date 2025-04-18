@@ -228,6 +228,23 @@ impl DB {
         Ok(media_items)
     }
 
+    pub async fn is_media_group_exists(
+        &mut self,
+        media_group: &str,
+    ) -> Result<bool, Box<dyn std::error::Error>> {
+        use self::schema::media::dsl::*;
+        let conn = &mut self.pool.get().await.unwrap();
+
+        let is_exists = media
+            .filter(media_group_id.eq(media_group))
+            .count()
+            .get_result::<i64>(conn)
+            .await?
+            > 0;
+
+        Ok(is_exists)
+    }
+
     pub async fn drop_media(&mut self, literal: &str) -> Result<usize, Box<dyn std::error::Error>> {
         use self::schema::media::dsl::*;
         let conn = &mut self.pool.get().await.unwrap();
