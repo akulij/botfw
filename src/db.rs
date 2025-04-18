@@ -1,6 +1,5 @@
 pub mod models;
 pub mod schema;
-use crate::Config;
 
 use self::models::*;
 

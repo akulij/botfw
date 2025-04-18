@@ -7,18 +7,16 @@ use crate::db::DB;
 
 use chrono::{DateTime, Utc};
 use chrono_tz::Asia;
-use db::schema::events;
 use envconfig::Envconfig;
 use serde::{Deserialize, Serialize};
 use teloxide::dispatching::dialogue::serializer::Json;
-use teloxide::dispatching::dialogue::{GetChatId, InMemStorage, PostgresStorage};
+use teloxide::dispatching::dialogue::{GetChatId, PostgresStorage};
 use teloxide::types::{
     InlineKeyboardButton, InlineKeyboardMarkup, MediaKind, MessageKind, ReplyMarkup,
 };
 use teloxide::{
     payloads::SendMessageSetters,
     prelude::*,
-    types::InputFile,
     utils::{command::BotCommands, render::RenderMessageTextHelper},
 };
 
