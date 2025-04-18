@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use teloxide::dispatching::dialogue::serializer::Json;
 use teloxide::dispatching::dialogue::{GetChatId, PostgresStorage};
 use teloxide::types::{
-    InlineKeyboardButton, InlineKeyboardMarkup, MediaKind, MessageKind, ReplyMarkup,
+    InlineKeyboardButton, InlineKeyboardMarkup, InputFile, MediaKind, MessageKind, ReplyMarkup,
 };
 use teloxide::{
     payloads::SendMessageSetters,
@@ -219,6 +219,39 @@ async fn edit_msg_handler(
                 .await?;
             dialogue.exit().await.unwrap();
         }
+        MediaKind::Photo(photo) => {
+            let group = photo.media_group_id;
+            if let Some(group) = group.clone() {
+                db.drop_media_except(&literal, &group).await.unwrap();
+            } else {
+                db.drop_media(&literal).await.unwrap();
+            }
+            let file_id = photo.photo[0].file.id.clone();
+            db.add_media(&literal, "photo", &file_id, group.as_deref())
+                .await
+                .unwrap();
+            match photo.caption {
+                Some(text) => {
+                    let html_text = Renderer::new(&text, &photo.caption_entities).as_html();
+                    db.set_literal(&literal, &html_text).await.unwrap();
+                    bot.send_message(chat_id, "Updated photo caption!").await?;
+                }
+                None => {
+                    // if it is a first message in group,
+                    // or just a photo without caption (unwrap_or case),
+                    // set text empty
+                    if !db
+                        .is_media_group_exists(group.as_deref().unwrap_or(""))
+                        .await
+                        .unwrap()
+                    {
+                        db.set_literal(&literal, "").await.unwrap();
+                        bot.send_message(chat_id, "Set photo without caption")
+                            .await?;
+                    };
+                }
+            }
+        }
         _ => {
             bot.send_message(chat_id, "this type of message is not supported yet")
                 .await?;
@@ -305,15 +338,55 @@ async fn answer_message<RM: Into<ReplyMarkup>>(
         .await
         .unwrap()
         .unwrap_or("Please, set content of this message".into());
-    let msg = bot.send_message(ChatId(chat_id), text);
-    let msg = match keyboard {
-        Some(kbd) => msg.reply_markup(kbd),
-        None => msg,
+    let media = db.get_media(&literal).await.unwrap();
+    let (chat_id, msg_id) = match media.len() {
+        // just a text
+        0 => {
+            let msg = bot.send_message(ChatId(chat_id), text);
+            let msg = match keyboard {
+                Some(kbd) => msg.reply_markup(kbd),
+                None => msg,
+            };
+            let msg = msg.parse_mode(teloxide::types::ParseMode::Html);
+            println!("ENTS: {:?}", msg.entities);
+            let msg = msg.await?;
+
+            (msg.chat.id.0, msg.id.0)
+        }
+        // single media
+        1 => {
+            let media = &media[0]; // safe, cause we just checked len
+            match media.media_type.as_str() {
+                "photo" => {
+                    let msg = bot.send_photo(
+                        ChatId(chat_id),
+                        InputFile::file_id(media.file_id.to_string()),
+                    );
+                    let msg = match text.as_str() {
+                        "" => msg,
+                        text => msg.caption(text),
+                    };
+                    let msg = match keyboard {
+                        Some(kbd) => msg.reply_markup(kbd),
+                        None => msg,
+                    };
+
+                    let msg = msg.parse_mode(teloxide::types::ParseMode::Html);
+                    let msg = msg.await?;
+
+                    (msg.chat.id.0, msg.id.0)
+                }
+                _ => {
+                    todo!()
+                }
+            }
+        }
+        // >= 2, should use media group
+        _ => {
+            todo!();
+        }
     };
-    let msg = msg.parse_mode(teloxide::types::ParseMode::Html);
-    println!("ENTS: {:?}", msg.entities);
-    let msg = msg.await?;
-    db.set_message_literal(msg.chat.id.0, msg.id.0, literal)
+    db.set_message_literal(chat_id, msg_id, literal)
         .await
         .unwrap();
     Ok(())
