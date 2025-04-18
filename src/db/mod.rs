@@ -239,11 +239,28 @@ impl DB {
         Ok(deleted_count)
     }
 
+    pub async fn drop_media_except(
+        &mut self,
+        literal: &str,
+        except_group: &str,
+    ) -> Result<usize, Box<dyn std::error::Error>> {
+        use self::schema::media::dsl::*;
+        let conn = &mut self.pool.get().await.unwrap();
+
+        let deleted_count =
+            diesel::delete(media.filter(token.eq(literal).and(media_group_id.ne(except_group))))
+                .execute(conn)
+                .await?;
+
+        Ok(deleted_count)
+    }
+
     pub async fn add_media(
         &mut self,
         literal: &str,
         mediatype: &str,
         fileid: &str,
+        media_group: Option<&str>,
     ) -> Result<Media, Box<dyn std::error::Error>> {
         use self::schema::media::dsl::*;
         let conn = &mut self.pool.get().await.unwrap();
@@ -253,6 +270,7 @@ impl DB {
                 token.eq(literal),
                 media_type.eq(mediatype),
                 file_id.eq(fileid),
+                media_group_id.eq(media_group),
             ))
             .get_result::<Media>(conn)
             .await?;
