@@ -31,6 +31,7 @@ pub struct Media {
     pub token: String,
     pub media_type: String,
     pub file_id: String,
+    pub media_group_id: String,
 }
 
 #[derive(Queryable, Debug, Identifiable)]
