@@ -22,7 +22,7 @@ diesel::table! {
         token -> Varchar,
         media_type -> Varchar,
         file_id -> Varchar,
-        media_group_id -> Varchar,
+        media_group_id -> Nullable<Varchar>,
     }
 }
 

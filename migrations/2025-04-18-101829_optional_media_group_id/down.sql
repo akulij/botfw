@@ -1,0 +1,1 @@
+ALTER TABLE media ALTER COLUMN media_group_id SET NOT NULL;
