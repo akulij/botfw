@@ -22,7 +22,7 @@ async fn test_get_media() {
     assert_eq!(media_items.len(), 0);
 
     let result = db
-        .add_media("test_get_media_literal", "photo", "file_id_1")
+        .add_media("test_get_media_literal", "photo", "file_id_1", None)
         .await
         .unwrap();
 
@@ -30,7 +30,7 @@ async fn test_get_media() {
     assert_eq!(media_items.len(), 1);
 
     let result = db
-        .add_media("test_get_media_literal", "video", "file_id_2")
+        .add_media("test_get_media_literal", "video", "file_id_2", None)
         .await
         .unwrap();
 
@@ -51,7 +51,10 @@ async fn test_add_media() {
 
     let result = db.drop_media(literal).await.unwrap();
 
-    let result = db.add_media(literal, media_type, file_id).await.unwrap();
+    let result = db
+        .add_media(literal, media_type, file_id, None)
+        .await
+        .unwrap();
 
     // Verify that the media was added is correct
     let media_items = db.get_media(literal).await.unwrap();
@@ -69,7 +72,7 @@ async fn test_drop_media() {
     let mut db = setup_db().await;
 
     let result = db
-        .add_media("test_drop_media_literal", "photo", "file_id_1")
+        .add_media("test_drop_media_literal", "photo", "file_id_1", None)
         .await
         .unwrap();
 
