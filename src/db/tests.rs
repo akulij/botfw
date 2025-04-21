@@ -115,3 +115,61 @@ async fn test_is_media_group_exists() {
     let exists = db.is_media_group_exists(media_group).await.unwrap();
     assert!(!exists);
 }
+
+#[tokio::test]
+async fn test_drop_media_except() {
+    let mut db = setup_db().await;
+
+    let media_group = "test_media_group_except";
+    let literal = "test_media_group_except_literal";
+    let _ = db.drop_media(literal).await.unwrap();
+
+    let _ = db
+        .add_media(literal, "photo", "file_id_2", None)
+        .await
+        .unwrap();
+    let _ = db
+        .add_media(literal, "photo", "file_id_3", None)
+        .await
+        .unwrap();
+
+    let media_items = db.get_media(literal).await.unwrap();
+    assert_eq!(media_items.len(), 2);
+
+    let deleted_count = db.drop_media_except(literal, media_group).await.unwrap();
+    let media_items = db.get_media(literal).await.unwrap();
+    assert_eq!(media_items.len(), 0);
+
+    let _ = db
+        .add_media(literal, "photo", "file_id_1", Some(media_group))
+        .await
+        .unwrap();
+    let _ = db
+        .add_media(literal, "photo", "file_id_2", None)
+        .await
+        .unwrap();
+    let _ = db
+        .add_media(literal, "photo", "file_id_3", None)
+        .await
+        .unwrap();
+
+    let deleted_count = db.drop_media_except(literal, media_group).await.unwrap();
+    let media_items = db.get_media(literal).await.unwrap();
+    assert_eq!(media_items.len(), 1);
+    let _ = db.drop_media(literal).await.unwrap();
+
+    let _ = db
+        .add_media(literal, "photo", "file_id_1", Some(media_group))
+        .await
+        .unwrap();
+    let _ = db
+        .add_media(literal, "photo", "file_id_2", Some(media_group))
+        .await
+        .unwrap();
+
+    let deleted_count = db.drop_media_except(literal, media_group).await.unwrap();
+    let media_items = db.get_media(literal).await.unwrap();
+    assert_eq!(media_items.len(), 2);
+
+    let _ = db.drop_media(literal).await.unwrap();
+}
