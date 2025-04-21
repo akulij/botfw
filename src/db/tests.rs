@@ -95,24 +95,22 @@ async fn test_is_media_group_exists() {
     let mut db = setup_db().await;
 
     let media_group = "test_media_group";
+    let literal = "test_media_group_literal";
+
+    let _ = db.drop_media(literal).await.unwrap();
 
     let exists = db.is_media_group_exists(media_group).await.unwrap();
     assert!(!exists);
 
     let _ = db
-        .add_media(
-            "test_media_group_literal",
-            "photo",
-            "file_id_1",
-            Some(media_group),
-        )
+        .add_media(literal, "photo", "file_id_1", Some(media_group))
         .await
         .unwrap();
 
     let exists = db.is_media_group_exists(media_group).await.unwrap();
     assert!(exists);
 
-    let _ = db.drop_media("test_media_group_literal").await.unwrap();
+    let _ = db.drop_media(literal).await.unwrap();
 
     let exists = db.is_media_group_exists(media_group).await.unwrap();
     assert!(!exists);
