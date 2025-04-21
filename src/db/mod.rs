@@ -264,10 +264,15 @@ impl DB {
         use self::schema::media::dsl::*;
         let conn = &mut self.pool.get().await.unwrap();
 
-        let deleted_count =
-            diesel::delete(media.filter(token.eq(literal).and(media_group_id.ne(except_group))))
-                .execute(conn)
-                .await?;
+        let deleted_count = diesel::delete(
+            media.filter(
+                token
+                    .eq(literal)
+                    .and(media_group_id.ne(except_group).or(media_group_id.is_null())),
+            ),
+        )
+        .execute(conn)
+        .await?;
 
         Ok(deleted_count)
     }
