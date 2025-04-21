@@ -1,6 +1,8 @@
 pub mod admin;
 pub mod db;
 
+use std::time::Duration;
+
 use crate::admin::{admin_command_handler, AdminCommands};
 use crate::admin::{secret_command_handler, SecretCommands};
 use crate::db::DB;
@@ -12,7 +14,8 @@ use serde::{Deserialize, Serialize};
 use teloxide::dispatching::dialogue::serializer::Json;
 use teloxide::dispatching::dialogue::{GetChatId, PostgresStorage};
 use teloxide::types::{
-    InlineKeyboardButton, InlineKeyboardMarkup, InputFile, MediaKind, MessageKind, ReplyMarkup,
+    InlineKeyboardButton, InlineKeyboardMarkup, InputFile, InputMedia, MediaKind, MessageKind,
+    ParseMode, ReplyMarkup,
 };
 use teloxide::{
     payloads::SendMessageSetters,
@@ -59,6 +62,7 @@ pub enum State {
     Edit {
         literal: String,
         lang: String,
+        is_caption_set: bool,
     },
 }
 
@@ -109,7 +113,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         })
                         .endpoint(edit_msg_cmd_handler),
                 )
-                .branch(dptree::case![State::Edit { literal, lang }].endpoint(edit_msg_handler)),
+                .branch(
+                    dptree::case![State::Edit {
+                        literal,
+                        lang,
+                        is_caption_set
+                    }]
+                    .endpoint(edit_msg_handler),
+                ),
         )
         .branch(Update::filter_message().endpoint(echo));
 
@@ -176,7 +187,11 @@ async fn edit_msg_cmd_handler(
             // TODO: language selector will be implemented in future 😈
             let lang = "ru".to_string();
             dialogue
-                .update(State::Edit { literal, lang })
+                .update(State::Edit {
+                    literal,
+                    lang,
+                    is_caption_set: false,
+                })
                 .await
                 .unwrap();
             bot.send_message(
@@ -197,7 +212,7 @@ async fn edit_msg_handler(
     bot: Bot,
     mut db: DB,
     dialogue: BotDialogue,
-    (literal, lang): (String, String),
+    (literal, lang, is_caption_set): (String, String, bool),
     msg: Message,
 ) -> Result<(), teloxide::RequestError> {
     use teloxide::utils::render::Renderer;
@@ -213,6 +228,9 @@ async fn edit_msg_handler(
 
     match msg.media_kind {
         MediaKind::Text(text) => {
+            if is_caption_set {
+                return Ok(());
+            };
             let html_text = Renderer::new(&text.text, &text.entities).as_html();
             db.set_literal(&literal, &html_text).await.unwrap();
             bot.send_message(chat_id, "Updated text of message!")
@@ -251,6 +269,24 @@ async fn edit_msg_handler(
                     };
                 }
             }
+            // Some workaround because Telegram's group system
+            // is not easily and obviously handled with this
+            // code architecture, but probably there is a solution.
+            //
+            // So, this code will just wait for all media group
+            // updates to be processed
+            dialogue
+                .update(State::Edit {
+                    literal,
+                    lang,
+                    is_caption_set: true,
+                })
+                .await
+                .unwrap();
+            tokio::spawn(async move {
+                tokio::time::sleep(Duration::from_millis(200)).await;
+                dialogue.exit().await.unwrap_or(());
+            });
         }
         MediaKind::Video(video) => {
             let group = video.media_group_id;
@@ -284,6 +320,24 @@ async fn edit_msg_handler(
                     };
                 }
             }
+            // Some workaround because Telegram's group system
+            // is not easily and obviously handled with this
+            // code architecture, but probably there is a solution.
+            //
+            // So, this code will just wait for all media group
+            // updates to be processed
+            dialogue
+                .update(State::Edit {
+                    literal,
+                    lang,
+                    is_caption_set: true,
+                })
+                .await
+                .unwrap();
+            tokio::spawn(async move {
+                tokio::time::sleep(Duration::from_millis(200)).await;
+                dialogue.exit().await.unwrap_or(());
+            });
         }
         _ => {
             bot.send_message(chat_id, "this type of message is not supported yet")
@@ -435,7 +489,52 @@ async fn answer_message<RM: Into<ReplyMarkup>>(
         }
         // >= 2, should use media group
         _ => {
-            todo!();
+            let media: Vec<InputMedia> = media
+                .into_iter()
+                .enumerate()
+                .map(|(i, m)| {
+                    let ifile = InputFile::file_id(m.file_id);
+                    let caption = if i == 0 {
+                        match text.as_str() {
+                            "" => None,
+                            text => Some(text.to_string()),
+                        }
+                    } else {
+                        None
+                    };
+                    match m.media_type.as_str() {
+                        "photo" => InputMedia::Photo(teloxide::types::InputMediaPhoto {
+                            media: ifile,
+                            caption,
+                            parse_mode: Some(ParseMode::Html),
+                            caption_entities: None,
+                            has_spoiler: false,
+                            show_caption_above_media: false,
+                        }),
+                        "video" => InputMedia::Video(teloxide::types::InputMediaVideo {
+                            media: ifile,
+                            thumbnail: None,
+                            caption,
+                            parse_mode: Some(ParseMode::Html),
+                            caption_entities: None,
+                            show_caption_above_media: false,
+                            width: None,
+                            height: None,
+                            duration: None,
+                            supports_streaming: None,
+                            has_spoiler: false,
+                        }),
+                        _ => {
+                            todo!()
+                        }
+                    }
+                })
+                .collect();
+            let msg = bot.send_media_group(ChatId(chat_id), media);
+
+            let msg = msg.await?;
+
+            (msg[0].chat.id.0, msg[0].id.0)
         }
     };
     db.set_message_literal(chat_id, msg_id, literal)
