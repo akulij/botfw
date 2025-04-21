@@ -252,6 +252,39 @@ async fn edit_msg_handler(
                 }
             }
         }
+        MediaKind::Video(video) => {
+            let group = video.media_group_id;
+            if let Some(group) = group.clone() {
+                db.drop_media_except(&literal, &group).await.unwrap();
+            } else {
+                db.drop_media(&literal).await.unwrap();
+            }
+            let file_id = video.video.file.id;
+            db.add_media(&literal, "video", &file_id, group.as_deref())
+                .await
+                .unwrap();
+            match video.caption {
+                Some(text) => {
+                    let html_text = Renderer::new(&text, &video.caption_entities).as_html();
+                    db.set_literal(&literal, &html_text).await.unwrap();
+                    bot.send_message(chat_id, "Updated video caption!").await?;
+                }
+                None => {
+                    // if it is a first message in group,
+                    // or just a video without caption (unwrap_or case),
+                    // set text empty
+                    if !db
+                        .is_media_group_exists(group.as_deref().unwrap_or(""))
+                        .await
+                        .unwrap()
+                    {
+                        db.set_literal(&literal, "").await.unwrap();
+                        bot.send_message(chat_id, "Set video without caption")
+                            .await?;
+                    };
+                }
+            }
+        }
         _ => {
             bot.send_message(chat_id, "this type of message is not supported yet")
                 .await?;
@@ -359,6 +392,25 @@ async fn answer_message<RM: Into<ReplyMarkup>>(
             match media.media_type.as_str() {
                 "photo" => {
                     let msg = bot.send_photo(
+                        ChatId(chat_id),
+                        InputFile::file_id(media.file_id.to_string()),
+                    );
+                    let msg = match text.as_str() {
+                        "" => msg,
+                        text => msg.caption(text),
+                    };
+                    let msg = match keyboard {
+                        Some(kbd) => msg.reply_markup(kbd),
+                        None => msg,
+                    };
+
+                    let msg = msg.parse_mode(teloxide::types::ParseMode::Html);
+                    let msg = msg.await?;
+
+                    (msg.chat.id.0, msg.id.0)
+                }
+                "video" => {
+                    let msg = bot.send_video(
                         ChatId(chat_id),
                         InputFile::file_id(media.file_id.to_string()),
                     );
