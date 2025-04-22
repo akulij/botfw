@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use crate::admin::{admin_command_handler, AdminCommands};
 use crate::admin::{secret_command_handler, SecretCommands};
-use crate::db::DB;
+use crate::db::{DB, CallDB};
 
 use chrono::{DateTime, Utc};
 use chrono_tz::Asia;
