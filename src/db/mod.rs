@@ -143,7 +143,10 @@ pub trait CallDB {
         users
             .update_one(
                 doc! { "id": userid },
-                doc! { "$set": { "first_name": firstname } },
+                doc! {
+                    "$set": doc! { "first_name": firstname},
+                    "$setOnInsert": doc! { "is_admin": false },
+                },
             )
             .upsert(true)
             .await
