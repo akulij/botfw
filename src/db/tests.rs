@@ -1,7 +1,6 @@
-use diesel::Connection;
-use diesel_async::AsyncPgConnection;
 use dotenvy;
 
+use super::CallDB;
 use super::DB;
 
 async fn setup_db() -> DB {

@@ -1,22 +1,15 @@
-pub mod models;
-pub mod schema;
-
-use std::os::unix::process::CommandExt;
-
-use self::models::*;
-
 use async_trait::async_trait;
-use bb8::PooledConnection;
-use chrono::Utc;
-use diesel::prelude::*;
-use diesel::query_builder::NoFromClause;
-use diesel::query_builder::SelectStatement;
-use diesel_async::pooled_connection::bb8::Pool;
-use diesel_async::pooled_connection::AsyncDieselConnectionManager;
-use diesel_async::AsyncConnection;
-use diesel_async::AsyncPgConnection;
-use diesel_async::RunQueryDsl;
+use chrono::{DateTime, Utc};
 use enum_stringify::EnumStringify;
+use futures::stream::{StreamExt, TryStreamExt};
+
+use mongodb::Database;
+use mongodb::{
+    bson::doc,
+    options::{ClientOptions, ResolverConfig},
+    Client,
+};
+use serde::{Deserialize, Serialize};
 
 #[derive(EnumStringify)]
 #[enum_stringify(case = "flat")]
@@ -29,85 +22,124 @@ pub trait GetReservationStatus {
     fn get_status(&self) -> Option<ReservationStatus>;
 }
 
-impl GetReservationStatus for models::Reservation {
-    fn get_status(&self) -> Option<ReservationStatus> {
-        ReservationStatus::try_from(self.status.clone()).ok()
-    }
+//impl GetReservationStatus for models::Reservation {
+//    fn get_status(&self) -> Option<ReservationStatus> {
+//        ReservationStatus::try_from(self.status.clone()).ok()
+//    }
+//}
+#[derive(Serialize, Deserialize, Default)]
+pub struct User {
+    pub _id: bson::oid::ObjectId,
+    pub id: i64,
+    pub is_admin: bool,
+    pub first_name: String,
+    pub last_name: Option<String>,
+    pub username: Option<String>,
+    pub language_code: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Message {
+    pub _id: bson::oid::ObjectId,
+    pub chat_id: i64,
+    pub message_id: i64,
+    pub token: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Literal {
+    pub _id: bson::oid::ObjectId,
+    pub token: String,
+    pub value: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Event {
+    pub _id: bson::oid::ObjectId,
+    pub time: DateTime<Utc>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Media {
+    pub _id: bson::oid::ObjectId,
+    pub token: String,
+    pub media_type: String,
+    pub file_id: String,
+    pub media_group_id: Option<String>,
 }
 
 #[derive(Clone)]
 pub struct DB {
-    pool: diesel_async::pooled_connection::bb8::Pool<AsyncPgConnection>,
+    client: Client,
 }
 
 impl DB {
     pub async fn new<S: Into<String>>(db_url: S) -> Self {
-        let config = AsyncDieselConnectionManager::<diesel_async::AsyncPgConnection>::new(db_url);
-        let pool = Pool::builder().build(config).await.unwrap();
-        DB { pool }
+        let options = ClientOptions::parse(db_url.into()).await.unwrap();
+        let client = Client::with_options(options).unwrap();
+
+        DB { client }
     }
 }
 
 #[async_trait]
 impl CallDB for DB {
-    async fn get_pool(
-        &mut self,
-    ) -> PooledConnection<'_, AsyncDieselConnectionManager<AsyncPgConnection>> {
-        self.pool.get().await.unwrap()
+    async fn get_database(&mut self) -> Database {
+        self.client.database("gongbot")
     }
 }
 
 #[async_trait]
 pub trait CallDB {
     //type C;
-    async fn get_pool(
-        &mut self,
-    ) -> PooledConnection<'_, AsyncDieselConnectionManager<AsyncPgConnection>>;
+    async fn get_database(&mut self) -> Database;
     //async fn get_pool(&mut self) -> PooledConnection<'_, AsyncDieselConnectionManager<C>>;
     async fn get_users(&mut self) -> Vec<User> {
-        use self::schema::users::dsl::*;
-        let mut conn = self.get_pool().await;
+        let db = self.get_database().await;
+        let users = db.collection::<User>("users");
         users
-            .filter(id.gt(0))
-            .load::<User>(&mut conn)
+            .find(doc! {})
             .await
             .unwrap()
+            .map(|u| u.unwrap())
+            .collect()
+            .await
     }
 
     async fn set_admin(&mut self, userid: i64, isadmin: bool) {
-        use self::schema::users::dsl::*;
-        let mut conn = self.get_pool().await;
-        diesel::update(users)
-            .filter(id.eq(userid))
-            .set(is_admin.eq(isadmin))
-            .execute(&mut conn)
+        let db = self.get_database().await;
+        let users = db.collection::<User>("users");
+        users
+            .update_one(
+                doc! {
+                    "id": userid
+                },
+                doc! {
+                    "$set": { "is_admin": isadmin }
+                },
+            )
             .await
             .unwrap();
     }
 
     async fn get_or_init_user(&mut self, userid: i64, firstname: &str) -> User {
-        use self::schema::users::dsl::*;
-        let conn = &mut self.get_pool().await;
+        let db = self.get_database().await;
+        let users = db.collection::<User>("users");
 
-        let user = users
-            .filter(id.eq(userid))
-            .first::<User>(conn)
+        users
+            .update_one(
+                doc! { "id": userid },
+                doc! { "$set": { "first_name": firstname } },
+            )
+            .upsert(true)
             .await
-            .optional()
             .unwrap();
 
-        match user {
-            Some(existing_user) => existing_user,
-            None => diesel::insert_into(users)
-                .values((
-                    id.eq(userid as i64),
-                    is_admin.eq(false),
-                    first_name.eq(firstname),
-                ))
-                .get_result(conn)
-                .await
-                .unwrap(),
-        }
+        users
+            .find_one(doc! { "id": userid })
+            .await
+            .unwrap()
+            .expect("no such user created")
     }
 
     async fn get_message(
@@ -115,15 +147,12 @@ pub trait CallDB {
         chatid: i64,
         messageid: i32,
     ) -> Result<Option<Message>, Box<dyn std::error::Error>> {
-        use self::schema::messages::dsl::*;
-        let conn = &mut self.get_pool().await;
+        let db = self.get_database().await;
+        let messages = db.collection::<Message>("messages");
 
         let msg = messages
-            .filter(chat_id.eq(chatid))
-            .filter(message_id.eq(messageid as i64))
-            .first::<Message>(conn)
-            .await
-            .optional()?;
+            .find_one(doc! { "chat_id": chatid, "message_id": messageid as i64 })
+            .await?;
 
         Ok(msg)
     }
@@ -143,29 +172,21 @@ pub trait CallDB {
         messageid: i32,
         literal: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        use self::schema::messages::dsl::*;
-        let msg = self.get_message(chatid, messageid).await?;
-        let conn = &mut self.get_pool().await;
+        let db = self.get_database().await;
+        let messages = db.collection::<Message>("messages");
 
-        match msg {
-            Some(msg) => {
-                diesel::update(messages)
-                    .filter(id.eq(msg.id))
-                    .set(token.eq(literal))
-                    .execute(conn)
-                    .await?;
-            }
-            None => {
-                diesel::insert_into(messages)
-                    .values((
-                        chat_id.eq(chatid),
-                        message_id.eq(messageid as i64),
-                        token.eq(literal),
-                    ))
-                    .execute(conn)
-                    .await?;
-            }
-        };
+        messages
+            .update_one(
+                doc! {
+                    "chat_id": chatid,
+                    "message_id": messageid as i64
+                },
+                doc! {
+                    "$set": { "token": literal }
+                },
+            )
+            .upsert(true)
+            .await?;
 
         Ok(())
     }
@@ -174,14 +195,10 @@ pub trait CallDB {
         &mut self,
         literal: &str,
     ) -> Result<Option<Literal>, Box<dyn std::error::Error>> {
-        use self::schema::literals::dsl::*;
-        let conn = &mut self.get_pool().await;
+        let db = self.get_database().await;
+        let messages = db.collection::<Literal>("messages");
 
-        let literal = literals
-            .filter(token.eq(literal))
-            .first::<Literal>(conn)
-            .await
-            .optional()?;
+        let literal = messages.find_one(doc! { "token": literal }).await?;
 
         Ok(literal)
     }
@@ -200,50 +217,59 @@ pub trait CallDB {
         literal: &str,
         valuestr: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        use self::schema::literals::dsl::*;
-        let conn = &mut self.get_pool().await;
+        let db = self.get_database().await;
+        let literals = db.collection::<Literal>("literals");
 
-        diesel::insert_into(literals)
-            .values((token.eq(literal), value.eq(valuestr)))
-            .on_conflict(token)
-            .do_update()
-            .set(value.eq(valuestr))
-            .execute(conn)
+        literals
+            .update_one(
+                doc! { "token": literal },
+                doc! { "$set": { "value": valuestr } },
+            )
+            .upsert(true)
             .await?;
 
         Ok(())
     }
 
     async fn get_all_events(&mut self) -> Vec<Event> {
-        use self::schema::events::dsl::*;
-        let mut conn = self.get_pool().await;
+        let db = self.get_database().await;
+        let events = db.collection::<Event>("events");
+
         events
-            .filter(id.gt(0))
-            .load::<Event>(&mut conn)
+            .find(doc! {})
             .await
             .unwrap()
+            .map(|e| e.unwrap())
+            .collect()
+            .await
     }
 
     async fn create_event(
         &mut self,
         event_datetime: chrono::DateTime<Utc>,
     ) -> Result<Event, Box<dyn std::error::Error>> {
-        use self::schema::events::dsl::*;
-        let conn = &mut self.get_pool().await;
+        let db = self.get_database().await;
+        let events = db.collection::<Event>("events");
 
-        let new_event = diesel::insert_into(events)
-            .values((time.eq(event_datetime),))
-            .get_result::<Event>(conn)
-            .await?;
+        let new_event = Event {
+            _id: bson::oid::ObjectId::new(),
+            time: event_datetime,
+        };
+
+        events.insert_one(&new_event).await?;
 
         Ok(new_event)
     }
 
     async fn get_media(&mut self, literal: &str) -> Result<Vec<Media>, Box<dyn std::error::Error>> {
-        use self::schema::media::dsl::*;
-        let conn = &mut self.get_pool().await;
+        let db = self.get_database().await;
+        let media = db.collection::<Media>("media");
 
-        let media_items = media.filter(token.eq(literal)).load::<Media>(conn).await?;
+        let media_items = media
+            .find(doc! { "token": literal })
+            .await?
+            .try_collect()
+            .await?;
 
         Ok(media_items)
     }
@@ -252,13 +278,11 @@ pub trait CallDB {
         &mut self,
         media_group: &str,
     ) -> Result<bool, Box<dyn std::error::Error>> {
-        use self::schema::media::dsl::*;
-        let conn = &mut self.get_pool().await;
+        let db = self.get_database().await;
+        let media = db.collection::<Media>("media");
 
         let is_exists = media
-            .filter(media_group_id.eq(media_group))
-            .count()
-            .get_result::<i64>(conn)
+            .count_documents(doc! { "media_group_id": media_group })
             .await?
             > 0;
 
@@ -266,14 +290,15 @@ pub trait CallDB {
     }
 
     async fn drop_media(&mut self, literal: &str) -> Result<usize, Box<dyn std::error::Error>> {
-        use self::schema::media::dsl::*;
-        let conn = &mut self.get_pool().await;
+        let db = self.get_database().await;
+        let media = db.collection::<Media>("media");
 
-        let deleted_count = diesel::delete(media.filter(token.eq(literal)))
-            .execute(conn)
-            .await?;
+        let deleted_count = media
+            .delete_many(doc! { "token": literal })
+            .await?
+            .deleted_count;
 
-        Ok(deleted_count)
+        Ok(deleted_count as usize)
     }
 
     async fn drop_media_except(
@@ -281,20 +306,18 @@ pub trait CallDB {
         literal: &str,
         except_group: &str,
     ) -> Result<usize, Box<dyn std::error::Error>> {
-        use self::schema::media::dsl::*;
-        let conn = &mut self.get_pool().await;
+        let db = self.get_database().await;
+        let media = db.collection::<Media>("media");
 
-        let deleted_count = diesel::delete(
-            media.filter(
-                token
-                    .eq(literal)
-                    .and(media_group_id.ne(except_group).or(media_group_id.is_null())),
-            ),
-        )
-        .execute(conn)
-        .await?;
+        let deleted_count = media
+            .delete_many(doc! {
+                "token": literal,
+                "media_group_id": { "$ne": except_group }
+            })
+            .await?
+            .deleted_count;
 
-        Ok(deleted_count)
+        Ok(deleted_count as usize)
     }
 
     async fn add_media(
@@ -304,18 +327,18 @@ pub trait CallDB {
         fileid: &str,
         media_group: Option<&str>,
     ) -> Result<Media, Box<dyn std::error::Error>> {
-        use self::schema::media::dsl::*;
-        let conn = &mut self.get_pool().await;
+        let db = self.get_database().await;
+        let media = db.collection::<Media>("media");
 
-        let new_media = diesel::insert_into(media)
-            .values((
-                token.eq(literal),
-                media_type.eq(mediatype),
-                file_id.eq(fileid),
-                media_group_id.eq(media_group),
-            ))
-            .get_result::<Media>(conn)
-            .await?;
+        let new_media = Media {
+            _id: bson::oid::ObjectId::new(),
+            token: literal.to_string(),
+            media_type: mediatype.to_string(),
+            file_id: fileid.to_string(),
+            media_group_id: media_group.map(|g| g.to_string()),
+        };
+
+        media.insert_one(&new_media).await?;
 
         Ok(new_media)
     }

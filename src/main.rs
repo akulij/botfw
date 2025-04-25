@@ -84,7 +84,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for event in events {
         match db.clone().create_event(event).await {
-            Ok(e) => println!("Created event {}", e.id),
+            Ok(e) => println!("Created event {}", e._id),
             Err(err) => println!("Failed to create event, error: {}", err),
         }
     }
@@ -551,7 +551,7 @@ async fn make_start_buttons(db: &mut DB) -> InlineKeyboardMarkup {
         .map(|e| {
             vec![InlineKeyboardButton::callback(
                 e.time.with_timezone(&Asia::Dubai).to_string(),
-                format!("event:{}", e.id),
+                format!("event:{}", e._id),
             )]
         })
         .collect();
