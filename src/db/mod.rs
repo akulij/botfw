@@ -5,18 +5,18 @@ use std::os::unix::process::CommandExt;
 
 use self::models::*;
 
+use async_trait::async_trait;
+use bb8::PooledConnection;
 use chrono::Utc;
 use diesel::prelude::*;
 use diesel::query_builder::NoFromClause;
 use diesel::query_builder::SelectStatement;
 use diesel_async::pooled_connection::bb8::Pool;
-use bb8::PooledConnection;
 use diesel_async::pooled_connection::AsyncDieselConnectionManager;
 use diesel_async::AsyncConnection;
 use diesel_async::AsyncPgConnection;
 use diesel_async::RunQueryDsl;
 use enum_stringify::EnumStringify;
-use async_trait::async_trait;
 
 #[derive(EnumStringify)]
 #[enum_stringify(case = "flat")]
@@ -50,7 +50,9 @@ impl DB {
 
 #[async_trait]
 impl CallDB for DB {
-    async fn get_pool(&mut self) -> PooledConnection<'_, AsyncDieselConnectionManager<AsyncPgConnection>> {
+    async fn get_pool(
+        &mut self,
+    ) -> PooledConnection<'_, AsyncDieselConnectionManager<AsyncPgConnection>> {
         self.pool.get().await.unwrap()
     }
 }
@@ -58,7 +60,9 @@ impl CallDB for DB {
 #[async_trait]
 pub trait CallDB {
     //type C;
-    async fn get_pool(&mut self) -> PooledConnection<'_, AsyncDieselConnectionManager<AsyncPgConnection>>;
+    async fn get_pool(
+        &mut self,
+    ) -> PooledConnection<'_, AsyncDieselConnectionManager<AsyncPgConnection>>;
     //async fn get_pool(&mut self) -> PooledConnection<'_, AsyncDieselConnectionManager<C>>;
     async fn get_users(&mut self) -> Vec<User> {
         use self::schema::users::dsl::*;
@@ -235,10 +239,7 @@ pub trait CallDB {
         Ok(new_event)
     }
 
-    async fn get_media(
-        &mut self,
-        literal: &str,
-    ) -> Result<Vec<Media>, Box<dyn std::error::Error>> {
+    async fn get_media(&mut self, literal: &str) -> Result<Vec<Media>, Box<dyn std::error::Error>> {
         use self::schema::media::dsl::*;
         let conn = &mut self.get_pool().await;
 
