@@ -1,18 +1,20 @@
 pub mod admin;
 pub mod db;
+pub mod mongodb_storage;
 
 use std::time::Duration;
 
 use crate::admin::{admin_command_handler, AdminCommands};
 use crate::admin::{secret_command_handler, SecretCommands};
 use crate::db::{CallDB, DB};
+use crate::mongodb_storage::MongodbStorage;
 
 use chrono::{DateTime, Utc};
 use chrono_tz::Asia;
 use envconfig::Envconfig;
 use serde::{Deserialize, Serialize};
 use teloxide::dispatching::dialogue::serializer::Json;
-use teloxide::dispatching::dialogue::{GetChatId, PostgresStorage};
+use teloxide::dispatching::dialogue::GetChatId;
 use teloxide::types::{
     InlineKeyboardButton, InlineKeyboardMarkup, InputFile, InputMedia, MediaKind, MessageKind,
     ParseMode, ReplyMarkup,
@@ -23,7 +25,7 @@ use teloxide::{
     utils::{command::BotCommands, render::RenderMessageTextHelper},
 };
 
-type BotDialogue = Dialogue<State, PostgresStorage<Json>>;
+type BotDialogue = Dialogue<State, MongodbStorage<Json>>;
 
 #[derive(Envconfig)]
 struct Config {
@@ -74,7 +76,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bot = Bot::new(&config.bot_token);
     let db = DB::new(&config.db_url).await;
     let db_url2 = config.db_url.clone();
-    let state_mgr = PostgresStorage::open(&db_url2, 8, Json).await?;
+    let state_mgr = MongodbStorage::open(&db_url2, "gongbot", Json).await?;
 
     // TODO: delete this in production
     let events: Vec<DateTime<Utc>> = vec!["2025-04-09T18:00:00+04:00", "2025-04-11T16:00:00+04:00"]
@@ -105,7 +107,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .await;
                     user.is_admin
                 })
-                .enter_dialogue::<Message, PostgresStorage<Json>, State>()
+                .enter_dialogue::<Message, MongodbStorage<Json>, State>()
                 .branch(
                     Update::filter_message()
                         .filter(|msg: Message| {
