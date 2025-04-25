@@ -3,12 +3,13 @@ use chrono::{DateTime, Utc};
 use enum_stringify::EnumStringify;
 use futures::stream::{StreamExt, TryStreamExt};
 
-use mongodb::Database;
+use mongodb::options::IndexOptions;
 use mongodb::{
     bson::doc,
     options::{ClientOptions, ResolverConfig},
     Client,
 };
+use mongodb::{Database, IndexModel};
 use serde::{Deserialize, Serialize};
 
 #[derive(EnumStringify)]
@@ -79,6 +80,19 @@ impl DB {
         let client = Client::with_options(options).unwrap();
 
         DB { client }
+    }
+
+    pub async fn migrate(&mut self) -> Result<(), mongodb::error::Error> {
+        let events = self.get_database().await.collection::<Event>("events");
+        events
+            .create_index(
+                IndexModel::builder()
+                    .keys(doc! {"time": 1})
+                    .options(IndexOptions::builder().unique(true).build())
+                    .build(),
+            )
+            .await?;
+        Ok(())
     }
 }
 
