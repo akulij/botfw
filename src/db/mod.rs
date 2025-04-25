@@ -210,7 +210,7 @@ pub trait CallDB {
         literal: &str,
     ) -> Result<Option<Literal>, Box<dyn std::error::Error>> {
         let db = self.get_database().await;
-        let messages = db.collection::<Literal>("messages");
+        let messages = db.collection::<Literal>("literals");
 
         let literal = messages.find_one(doc! { "token": literal }).await?;
 
