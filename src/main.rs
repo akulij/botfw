@@ -74,7 +74,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::init_from_env()?;
 
     let bot = Bot::new(&config.bot_token);
-    let db = DB::new(&config.db_url).await;
+    let mut db = DB::new(&config.db_url).await;
+    db.migrate().await.unwrap();
     let db_url2 = config.db_url.clone();
     let state_mgr = MongodbStorage::open(&db_url2, "gongbot", Json).await?;
 
