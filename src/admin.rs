@@ -83,7 +83,7 @@ pub async fn secret_command_handler(
                     .await?;
             } else if pass == admin_password {
                 db.set_admin(user.id, true).await;
-                bot.send_message(msg.from.unwrap().id, "You are admin now!")
+                bot.send_message(msg.from.unwrap().id, "You are an admin now!")
                     .await?;
             }
             Ok(())
