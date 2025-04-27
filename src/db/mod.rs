@@ -35,6 +35,36 @@ pub struct User {
     pub language_code: Option<String>,
 }
 
+macro_rules! query_call {
+    ($func_name:ident, $self:ident, $db:ident, $return_type:ty, $body:block) => {
+        pub async fn $func_name<D: CallDB>(&$self, $db: &mut D)
+            -> Result<$return_type, Box<dyn std::error::Error>> $body
+    };
+}
+
+impl User {
+    query_call!(update_user, self, db, (), {
+        let db_collection = db.get_database().await.collection::<Self>("users");
+
+        db_collection
+            .update_one(
+                doc! { "_id": self._id },
+                doc! {
+                    "$set": {
+                        "first_name": &self.first_name,
+                        "last_name": &self.last_name,
+                        "username": &self.username,
+                        "language_code": &self.language_code,
+                        "is_admin": &self.is_admin,
+                    }
+                },
+            )
+            .await?;
+
+        Ok(())
+    });
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Message {
     pub _id: bson::oid::ObjectId,
