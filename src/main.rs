@@ -406,6 +406,8 @@ async fn user_command_handler(
     let user = db
         .get_or_init_user(tguser.id.0 as i64, &tguser.first_name)
         .await;
+    let user = update_user_tg(user, msg.from.as_ref().unwrap());
+    user.update_user(&mut db).await.unwrap();
     println!("MSG: {}", msg.html_text().unwrap());
     match cmd {
         UserCommands::Start => {
@@ -585,4 +587,14 @@ async fn echo(bot: Bot, msg: Message) -> Result<(), teloxide::RequestError> {
         .parse_mode(teloxide::types::ParseMode::Html)
         .await?;
     Ok(())
+}
+
+fn update_user_tg(user: db::User, tguser: &teloxide::types::User) -> db::User {
+    db::User {
+        first_name: tguser.first_name.clone(),
+        last_name: tguser.last_name.clone(),
+        username: tguser.username.clone(),
+        language_code: tguser.language_code.clone(),
+        ..user
+    }
 }
