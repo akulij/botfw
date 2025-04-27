@@ -242,6 +242,7 @@ async fn edit_msg_handler(
 
     match msg.media_kind {
         MediaKind::Text(text) => {
+            db.drop_media(&literal).await.unwrap();
             if is_caption_set {
                 return Ok(());
             };
