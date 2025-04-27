@@ -2,7 +2,6 @@ pub mod admin;
 pub mod db;
 pub mod mongodb_storage;
 
-use std::sync::Arc;
 use std::time::Duration;
 
 use crate::admin::{admin_command_handler, AdminCommands};
@@ -13,11 +12,9 @@ use crate::mongodb_storage::MongodbStorage;
 use chrono::{DateTime, Utc};
 use chrono_tz::Asia;
 use envconfig::Envconfig;
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use teloxide::dispatching::dialogue::serializer::Json;
-use teloxide::dispatching::dialogue::Serializer;
-use teloxide::dispatching::dialogue::{GetChatId, Storage};
+use teloxide::dispatching::dialogue::GetChatId;
 use teloxide::types::{
     InlineKeyboardButton, InlineKeyboardMarkup, InputFile, InputMedia, MediaKind, MessageKind,
     ParseMode, ReplyMarkup,
@@ -31,7 +28,7 @@ use teloxide::{
 type BotDialogue = Dialogue<State, MongodbStorage<Json>>;
 
 #[derive(Envconfig)]
-struct Config {
+pub struct Config {
     #[envconfig(from = "BOT_TOKEN")]
     pub bot_token: String,
     #[envconfig(from = "DATABASE_URL")]

@@ -4,11 +4,7 @@ use enum_stringify::EnumStringify;
 use futures::stream::{StreamExt, TryStreamExt};
 
 use mongodb::options::IndexOptions;
-use mongodb::{
-    bson::doc,
-    options::{ClientOptions, ResolverConfig},
-    Client,
-};
+use mongodb::{bson::doc, options::ClientOptions, Client};
 use mongodb::{Database, IndexModel};
 use serde::{Deserialize, Serialize};
 
