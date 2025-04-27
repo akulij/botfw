@@ -2,6 +2,7 @@ pub mod admin;
 pub mod db;
 pub mod mongodb_storage;
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use crate::admin::{admin_command_handler, AdminCommands};
@@ -12,9 +13,11 @@ use crate::mongodb_storage::MongodbStorage;
 use chrono::{DateTime, Utc};
 use chrono_tz::Asia;
 use envconfig::Envconfig;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use teloxide::dispatching::dialogue::serializer::Json;
-use teloxide::dispatching::dialogue::GetChatId;
+use teloxide::dispatching::dialogue::Serializer;
+use teloxide::dispatching::dialogue::{GetChatId, Storage};
 use teloxide::types::{
     InlineKeyboardButton, InlineKeyboardMarkup, InputFile, InputMedia, MediaKind, MessageKind,
     ParseMode, ReplyMarkup,
@@ -68,15 +71,27 @@ pub enum State {
     },
 }
 
+pub struct BotController {
+    pub bot: Bot,
+    pub db: DB,
+}
+
+impl BotController {
+    pub async fn new(config: &Config) -> Result<Self, Box<dyn std::error::Error>> {
+        let bot = Bot::new(&config.bot_token);
+        let db = DB::init(&config.db_url).await?;
+
+        Ok(Self { bot, db })
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv()?;
     let config = Config::init_from_env()?;
 
-    let bot = Bot::new(&config.bot_token);
-    let mut db = DB::init(&config.db_url).await;
-    let db_url2 = config.db_url.clone();
-    let state_mgr = MongodbStorage::open(&db_url2, "gongbot", Json).await?;
+    let mut bc = BotController::new(&config).await?;
+    let state_mgr = MongodbStorage::open(config.db_url.clone().as_ref(), "gongbot", Json).await?;
 
     // TODO: delete this in production
     let events: Vec<DateTime<Utc>> = vec!["2025-04-09T18:00:00+04:00", "2025-04-11T16:00:00+04:00"]
@@ -85,7 +100,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .collect();
 
     for event in events {
-        match db.clone().create_event(event).await {
+        match bc.db.create_event(event).await {
             Ok(e) => println!("Created event {}", e._id),
             Err(err) => println!("Failed to create event, error: {}", err),
         }
@@ -126,8 +141,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .branch(Update::filter_message().endpoint(echo));
 
-    Dispatcher::builder(bot, handler)
-        .dependencies(dptree::deps![db, state_mgr])
+    Dispatcher::builder(bc.bot, handler)
+        .dependencies(dptree::deps![bc.db, state_mgr])
         .enable_ctrlc_handler()
         .build()
         .dispatch()
