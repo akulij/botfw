@@ -94,6 +94,13 @@ impl DB {
             .await?;
         Ok(())
     }
+
+    pub async fn init<S: Into<String>>(db_url: S) -> Result<Self, mongodb::error::Error> {
+        let mut db = Self::new(db_url).await;
+        db.migrate().await?;
+
+        Ok(db)
+    }
 }
 
 #[async_trait]
