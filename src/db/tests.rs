@@ -6,21 +6,20 @@ use super::DB;
 async fn setup_db() -> DB {
     dotenvy::dotenv().unwrap();
     let db_url = std::env::var("DATABASE_URL").unwrap();
-    let db = DB::new(db_url).await;
 
-    db
+    DB::new(db_url).await
 }
 
 #[tokio::test]
 async fn test_get_media() {
     let mut db = setup_db().await;
 
-    let result = db.drop_media("test_get_media_literal").await.unwrap();
+    let _result = db.drop_media("test_get_media_literal").await.unwrap();
 
     let media_items = db.get_media("test_get_media_literal").await.unwrap();
     assert_eq!(media_items.len(), 0);
 
-    let result = db
+    let _result = db
         .add_media("test_get_media_literal", "photo", "file_id_1", None)
         .await
         .unwrap();
@@ -28,7 +27,7 @@ async fn test_get_media() {
     let media_items = db.get_media("test_get_media_literal").await.unwrap();
     assert_eq!(media_items.len(), 1);
 
-    let result = db
+    let _result = db
         .add_media("test_get_media_literal", "video", "file_id_2", None)
         .await
         .unwrap();
@@ -37,7 +36,7 @@ async fn test_get_media() {
     assert_eq!(media_items.len(), 2);
 
     // Clean up after test
-    let result = db.drop_media("test_get_media_literal").await.unwrap();
+    let _result = db.drop_media("test_get_media_literal").await.unwrap();
 }
 
 #[tokio::test]
@@ -48,9 +47,9 @@ async fn test_add_media() {
     let media_type = "photo";
     let file_id = "LjaldhAOh";
 
-    let result = db.drop_media(literal).await.unwrap();
+    let _result = db.drop_media(literal).await.unwrap();
 
-    let result = db
+    let _result = db
         .add_media(literal, media_type, file_id, None)
         .await
         .unwrap();
@@ -63,14 +62,14 @@ async fn test_add_media() {
     assert_eq!(media_items[0].file_id, file_id);
 
     // Clean up after test
-    let result = db.drop_media(literal).await.unwrap();
+    let _result = db.drop_media(literal).await.unwrap();
 }
 
 #[tokio::test]
 async fn test_drop_media() {
     let mut db = setup_db().await;
 
-    let result = db
+    let _result = db
         .add_media("test_drop_media_literal", "photo", "file_id_1", None)
         .await
         .unwrap();
@@ -79,14 +78,14 @@ async fn test_drop_media() {
     let media_items = db.get_media("test_drop_media_literal").await.unwrap();
     assert_eq!(media_items.len(), 1);
 
-    let result = db.drop_media("test_drop_media_literal").await.unwrap();
+    let _result = db.drop_media("test_drop_media_literal").await.unwrap();
 
     // Verify that the media has been dropped
     let media_items = db.get_media("test_drop_media_literal").await.unwrap();
     assert_eq!(media_items.len(), 0);
 
     // Clean up after test
-    let result = db.drop_media("test_drop_media_literal").await.unwrap();
+    let _result = db.drop_media("test_drop_media_literal").await.unwrap();
 }
 
 #[tokio::test]
@@ -135,7 +134,7 @@ async fn test_drop_media_except() {
     let media_items = db.get_media(literal).await.unwrap();
     assert_eq!(media_items.len(), 2);
 
-    let deleted_count = db.drop_media_except(literal, media_group).await.unwrap();
+    let _deleted_count = db.drop_media_except(literal, media_group).await.unwrap();
     let media_items = db.get_media(literal).await.unwrap();
     assert_eq!(media_items.len(), 0);
 
@@ -152,7 +151,7 @@ async fn test_drop_media_except() {
         .await
         .unwrap();
 
-    let deleted_count = db.drop_media_except(literal, media_group).await.unwrap();
+    let _deleted_count = db.drop_media_except(literal, media_group).await.unwrap();
     let media_items = db.get_media(literal).await.unwrap();
     assert_eq!(media_items.len(), 1);
     let _ = db.drop_media(literal).await.unwrap();
@@ -166,7 +165,7 @@ async fn test_drop_media_except() {
         .await
         .unwrap();
 
-    let deleted_count = db.drop_media_except(literal, media_group).await.unwrap();
+    let _deleted_count = db.drop_media_except(literal, media_group).await.unwrap();
     let media_items = db.get_media(literal).await.unwrap();
     assert_eq!(media_items.len(), 2);
 
