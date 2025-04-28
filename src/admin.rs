@@ -3,8 +3,11 @@ use teloxide::{
     utils::{command::BotCommands, render::RenderMessageTextHelper},
 };
 
-use crate::db::{CallDB, DB};
 use crate::LogMsg;
+use crate::{
+    db::{CallDB, DB},
+    BotResult,
+};
 
 // These are should not appear in /help
 #[derive(BotCommands, Clone)]
@@ -30,9 +33,15 @@ pub async fn admin_command_handler(
     bot: Bot,
     msg: Message,
     cmd: AdminCommands,
-) -> Result<(), teloxide::RequestError> {
-    let tguser = msg.from.clone().unwrap();
-    println!("MSG: {}", msg.html_text().unwrap());
+) -> BotResult<()> {
+    let tguser = match msg.from.clone() {
+        Some(user) => user,
+        None => return Ok(()), // do nothing, cause its not usecase of function
+    };
+    println!(
+        "MSG: {}",
+        msg.html_text().unwrap_or("|EMPTY_MESSAGE|".into())
+    );
     match cmd {
         AdminCommands::MyId => {
             bot.send_message(msg.chat.id, format!("Your ID is: {}", tguser.id))
@@ -69,22 +78,27 @@ pub async fn secret_command_handler(
     msg: Message,
     cmd: SecretCommands,
     admin_password: String,
-) -> Result<(), teloxide::RequestError> {
+) -> BotResult<()> {
     println!("Admin Pass: {}", admin_password);
-    let tguser = msg.from.clone().unwrap();
+    let tguser = match msg.from.clone() {
+        Some(user) => user,
+        None => return Ok(()), // do nothing, cause its not usecase of function
+    };
     let user = db
         .get_or_init_user(tguser.id.0 as i64, &tguser.first_name)
-        .await;
-    println!("MSG: {}", msg.html_text().unwrap());
+        .await?;
+    println!(
+        "MSG: {}",
+        msg.html_text().unwrap_or("|EMPTY_MESSAGE|".into())
+    );
     match cmd {
         SecretCommands::Secret { pass } => {
             if user.is_admin {
-                bot.send_message(msg.from.unwrap().id, "You are an admin already")
+                bot.send_message(tguser.id, "You are an admin already")
                     .await?;
             } else if pass == admin_password {
-                db.set_admin(user.id, true).await;
-                bot.send_message(msg.from.unwrap().id, "You are an admin now!")
-                    .await?;
+                db.set_admin(user.id, true).await?;
+                bot.send_message(tguser.id, "You are an admin now!").await?;
             }
             Ok(())
         }
