@@ -64,7 +64,7 @@ pub async fn admin_command_handler(
             Ok(())
         }
         AdminCommands::Deop => {
-            db.set_admin(tguser.id.0 as i64, false).await;
+            db.set_admin(tguser.id.0 as i64, false).await?;
             bot.send_message(msg.chat.id, "You are not an admin anymore")
                 .await?;
             Ok(())
