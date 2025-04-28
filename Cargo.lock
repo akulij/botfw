@@ -839,6 +839,7 @@ dependencies = [
  "enum_stringify",
  "envconfig",
  "futures",
+ "log",
  "mongodb",
  "serde",
  "teloxide",

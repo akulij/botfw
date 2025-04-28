@@ -14,6 +14,7 @@ dotenvy = "0.15.7"
 enum_stringify = "0.6.3"
 envconfig = "0.11.0"
 futures = "0.3.31"
+log = "0.4.27"
 mongodb = "3.2.3"
 serde = { version = "1.0.219", features = ["derive", "serde_derive"] }
 teloxide = { version = "0.14.0", features = ["macros", "postgres-storage-nativetls"] }
