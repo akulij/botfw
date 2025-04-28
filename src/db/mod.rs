@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use enum_stringify::EnumStringify;
-use futures::stream::{StreamExt, TryStreamExt};
+use futures::stream::TryStreamExt;
 
 use mongodb::options::IndexOptions;
 use mongodb::{bson::doc, options::ClientOptions, Client};
@@ -38,7 +38,7 @@ pub struct User {
 macro_rules! query_call {
     ($func_name:ident, $self:ident, $db:ident, $return_type:ty, $body:block) => {
         pub async fn $func_name<D: CallDB>(&$self, $db: &mut D)
-            -> Result<$return_type, Box<dyn std::error::Error>> $body
+            -> DbResult<$return_type> $body
     };
 }
 
@@ -101,14 +101,14 @@ pub struct DB {
 }
 
 impl DB {
-    pub async fn new<S: Into<String>>(db_url: S) -> Self {
-        let options = ClientOptions::parse(db_url.into()).await.unwrap();
-        let client = Client::with_options(options).unwrap();
+    pub async fn new<S: Into<String>>(db_url: S) -> DbResult<Self> {
+        let options = ClientOptions::parse(db_url.into()).await?;
+        let client = Client::with_options(options)?;
 
-        DB { client }
+        Ok(DB { client })
     }
 
-    pub async fn migrate(&mut self) -> Result<(), mongodb::error::Error> {
+    pub async fn migrate(&mut self) -> DbResult<()> {
         let events = self.get_database().await.collection::<Event>("events");
         events
             .create_index(
@@ -121,8 +121,8 @@ impl DB {
         Ok(())
     }
 
-    pub async fn init<S: Into<String>>(db_url: S) -> Result<Self, mongodb::error::Error> {
-        let mut db = Self::new(db_url).await;
+    pub async fn init<S: Into<String>>(db_url: S) -> DbResult<Self> {
+        let mut db = Self::new(db_url).await?;
         db.migrate().await?;
 
         Ok(db)
@@ -136,24 +136,22 @@ impl CallDB for DB {
     }
 }
 
+pub type DbError = mongodb::error::Error;
+pub type DbResult<T> = Result<T, DbError>;
+
 #[async_trait]
 pub trait CallDB {
     //type C;
     async fn get_database(&mut self) -> Database;
     //async fn get_pool(&mut self) -> PooledConnection<'_, AsyncDieselConnectionManager<C>>;
-    async fn get_users(&mut self) -> Vec<User> {
+    async fn get_users(&mut self) -> DbResult<Vec<User>> {
         let db = self.get_database().await;
         let users = db.collection::<User>("users");
-        users
-            .find(doc! {})
-            .await
-            .unwrap()
-            .map(|u| u.unwrap())
-            .collect()
-            .await
+
+        users.find(doc! {}).await?.try_collect().await
     }
 
-    async fn set_admin(&mut self, userid: i64, isadmin: bool) {
+    async fn set_admin(&mut self, userid: i64, isadmin: bool) -> DbResult<()> {
         let db = self.get_database().await;
         let users = db.collection::<User>("users");
         users
@@ -165,11 +163,12 @@ pub trait CallDB {
                     "$set": { "is_admin": isadmin }
                 },
             )
-            .await
-            .unwrap();
+            .await?;
+
+        Ok(())
     }
 
-    async fn get_or_init_user(&mut self, userid: i64, firstname: &str) -> User {
+    async fn get_or_init_user(&mut self, userid: i64, firstname: &str) -> DbResult<User> {
         let db = self.get_database().await;
         let users = db.collection::<User>("users");
 
@@ -182,21 +181,15 @@ pub trait CallDB {
                 },
             )
             .upsert(true)
-            .await
-            .unwrap();
+            .await?;
 
-        users
+        Ok(users
             .find_one(doc! { "id": userid })
-            .await
-            .unwrap()
-            .expect("no such user created")
+            .await?
+            .expect("no such user created"))
     }
 
-    async fn get_message(
-        &mut self,
-        chatid: i64,
-        messageid: i32,
-    ) -> Result<Option<Message>, Box<dyn std::error::Error>> {
+    async fn get_message(&mut self, chatid: i64, messageid: i32) -> DbResult<Option<Message>> {
         let db = self.get_database().await;
         let messages = db.collection::<Message>("messages");
 
@@ -211,7 +204,7 @@ pub trait CallDB {
         &mut self,
         chatid: i64,
         messageid: i32,
-    ) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    ) -> DbResult<Option<String>> {
         let msg = self.get_message(chatid, messageid).await?;
         Ok(msg.map(|m| m.token))
     }
@@ -221,7 +214,7 @@ pub trait CallDB {
         chatid: i64,
         messageid: i32,
         literal: &str,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> DbResult<()> {
         let db = self.get_database().await;
         let messages = db.collection::<Message>("messages");
 
@@ -241,10 +234,7 @@ pub trait CallDB {
         Ok(())
     }
 
-    async fn get_literal(
-        &mut self,
-        literal: &str,
-    ) -> Result<Option<Literal>, Box<dyn std::error::Error>> {
+    async fn get_literal(&mut self, literal: &str) -> DbResult<Option<Literal>> {
         let db = self.get_database().await;
         let messages = db.collection::<Literal>("literals");
 
@@ -253,20 +243,13 @@ pub trait CallDB {
         Ok(literal)
     }
 
-    async fn get_literal_value(
-        &mut self,
-        literal: &str,
-    ) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    async fn get_literal_value(&mut self, literal: &str) -> DbResult<Option<String>> {
         let literal = self.get_literal(literal).await?;
 
         Ok(literal.map(|l| l.value))
     }
 
-    async fn set_literal(
-        &mut self,
-        literal: &str,
-        valuestr: &str,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    async fn set_literal(&mut self, literal: &str, valuestr: &str) -> DbResult<()> {
         let db = self.get_database().await;
         let literals = db.collection::<Literal>("literals");
 
@@ -281,23 +264,14 @@ pub trait CallDB {
         Ok(())
     }
 
-    async fn get_all_events(&mut self) -> Vec<Event> {
+    async fn get_all_events(&mut self) -> DbResult<Vec<Event>> {
         let db = self.get_database().await;
         let events = db.collection::<Event>("events");
 
-        events
-            .find(doc! {})
-            .await
-            .unwrap()
-            .map(|e| e.unwrap())
-            .collect()
-            .await
+        events.find(doc! {}).await?.try_collect().await
     }
 
-    async fn create_event(
-        &mut self,
-        event_datetime: chrono::DateTime<Utc>,
-    ) -> Result<Event, Box<dyn std::error::Error>> {
+    async fn create_event(&mut self, event_datetime: chrono::DateTime<Utc>) -> DbResult<Event> {
         let db = self.get_database().await;
         let events = db.collection::<Event>("events");
 
@@ -311,7 +285,7 @@ pub trait CallDB {
         Ok(new_event)
     }
 
-    async fn get_media(&mut self, literal: &str) -> Result<Vec<Media>, Box<dyn std::error::Error>> {
+    async fn get_media(&mut self, literal: &str) -> DbResult<Vec<Media>> {
         let db = self.get_database().await;
         let media = db.collection::<Media>("media");
 
@@ -324,10 +298,7 @@ pub trait CallDB {
         Ok(media_items)
     }
 
-    async fn is_media_group_exists(
-        &mut self,
-        media_group: &str,
-    ) -> Result<bool, Box<dyn std::error::Error>> {
+    async fn is_media_group_exists(&mut self, media_group: &str) -> DbResult<bool> {
         let db = self.get_database().await;
         let media = db.collection::<Media>("media");
 
@@ -339,7 +310,7 @@ pub trait CallDB {
         Ok(is_exists)
     }
 
-    async fn drop_media(&mut self, literal: &str) -> Result<usize, Box<dyn std::error::Error>> {
+    async fn drop_media(&mut self, literal: &str) -> DbResult<usize> {
         let db = self.get_database().await;
         let media = db.collection::<Media>("media");
 
@@ -351,11 +322,7 @@ pub trait CallDB {
         Ok(deleted_count as usize)
     }
 
-    async fn drop_media_except(
-        &mut self,
-        literal: &str,
-        except_group: &str,
-    ) -> Result<usize, Box<dyn std::error::Error>> {
+    async fn drop_media_except(&mut self, literal: &str, except_group: &str) -> DbResult<usize> {
         let db = self.get_database().await;
         let media = db.collection::<Media>("media");
 
@@ -376,7 +343,7 @@ pub trait CallDB {
         mediatype: &str,
         fileid: &str,
         media_group: Option<&str>,
-    ) -> Result<Media, Box<dyn std::error::Error>> {
+    ) -> DbResult<Media> {
         let db = self.get_database().await;
         let media = db.collection::<Media>("media");
 
