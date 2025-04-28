@@ -842,6 +842,7 @@ dependencies = [
  "mongodb",
  "serde",
  "teloxide",
+ "thiserror 2.0.12",
  "tokio",
 ]
 
