@@ -91,7 +91,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state_mgr = MongodbStorage::open(config.db_url.clone().as_ref(), "gongbot", Json).await?;
 
     // TODO: delete this in production
-    let events: Vec<DateTime<Utc>> = vec!["2025-04-09T18:00:00+04:00", "2025-04-11T16:00:00+04:00"]
+    let events: Vec<DateTime<Utc>> = ["2025-04-09T18:00:00+04:00", "2025-04-11T16:00:00+04:00"]
         .iter()
         .map(|d| DateTime::parse_from_rfc3339(d).unwrap().into())
         .collect();
@@ -160,10 +160,7 @@ async fn callback_handler(
             "more_info" => {
                 answer_message(
                     &bot,
-                    q.chat_id()
-                        .clone()
-                        .map(|i| i.0)
-                        .unwrap_or(q.from.id.0 as i64),
+                    q.chat_id().map(|i| i.0).unwrap_or(q.from.id.0 as i64),
                     &mut db,
                     "more_info",
                     None as Option<InlineKeyboardMarkup>,
@@ -442,7 +439,7 @@ async fn answer_message<RM: Into<ReplyMarkup>>(
         .await
         .unwrap()
         .unwrap_or("Please, set content of this message".into());
-    let media = db.get_media(&literal).await.unwrap();
+    let media = db.get_media(literal).await.unwrap();
     let (chat_id, msg_id) = match media.len() {
         // just a text
         0 => {

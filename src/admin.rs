@@ -78,7 +78,7 @@ pub async fn secret_command_handler(
     println!("MSG: {}", msg.html_text().unwrap());
     match cmd {
         SecretCommands::Secret { pass } => {
-            if user.is_admin == true {
+            if user.is_admin {
                 bot.send_message(msg.from.unwrap().id, "You are an admin already")
                     .await?;
             } else if pass == admin_password {
