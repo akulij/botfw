@@ -11,10 +11,11 @@ use crate::mongodb_storage::MongodbStorage;
 
 use chrono::{DateTime, Utc};
 use chrono_tz::Asia;
+use db::DbError;
 use envconfig::Envconfig;
 use serde::{Deserialize, Serialize};
 use teloxide::dispatching::dialogue::serializer::Json;
-use teloxide::dispatching::dialogue::GetChatId;
+use teloxide::dispatching::dialogue::{GetChatId, Serializer};
 use teloxide::types::{
     InlineKeyboardButton, InlineKeyboardMarkup, InputFile, InputMedia, MediaKind, MessageKind,
     ParseMode, ReplyMarkup,
@@ -82,6 +83,21 @@ impl BotController {
     }
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum BotError {
+    DBError(#[from] DbError),
+    TeloxideError(#[from] teloxide::RequestError),
+    StorageError(#[from] mongodb_storage::MongodbStorageError<<Json as Serializer<State>>::Error>),
+}
+
+pub type BotResult<T> = Result<T, BotError>;
+
+impl std::fmt::Display for BotError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv()?;
@@ -91,6 +107,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state_mgr = MongodbStorage::open(config.db_url.clone().as_ref(), "gongbot", Json).await?;
 
     // TODO: delete this in production
+    // allow because values are hardcoded and if they will be unparsable
+    // we should panic anyway
+    #[allow(clippy::unwrap_used)]
     let events: Vec<DateTime<Utc>> = ["2025-04-09T18:00:00+04:00", "2025-04-11T16:00:00+04:00"]
         .iter()
         .map(|d| DateTime::parse_from_rfc3339(d).unwrap().into())
@@ -113,11 +132,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .branch(
             Update::filter_message()
                 .filter_async(async |msg: Message, mut db: DB| {
-                    let tguser = msg.from.unwrap();
+                    let tguser = match msg.from.clone() {
+                        Some(user) => user,
+                        None => return false, // do nothing, cause its not usecase of function
+                    };
                     let user = db
                         .get_or_init_user(tguser.id.0 as i64, &tguser.first_name)
                         .await;
-                    user.is_admin
+                    user.map(|u| u.is_admin).unwrap_or(false)
                 })
                 .enter_dialogue::<Message, MongodbStorage<Json>, State>()
                 .branch(
@@ -148,11 +170,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn callback_handler(
-    bot: Bot,
-    mut db: DB,
-    q: CallbackQuery,
-) -> Result<(), teloxide::RequestError> {
+async fn callback_handler(bot: Bot, mut db: DB, q: CallbackQuery) -> BotResult<()> {
     bot.answer_callback_query(&q.id).await?;
 
     if let Some(ref data) = q.data {
@@ -179,16 +197,12 @@ async fn edit_msg_cmd_handler(
     mut db: DB,
     dialogue: BotDialogue,
     msg: Message,
-) -> Result<(), teloxide::RequestError> {
+) -> BotResult<()> {
     match msg.reply_to_message() {
         Some(replied) => {
             let msgid = replied.id;
             // look for message in db and set text
-            let literal = match db
-                .get_message_literal(msg.chat.id.0, msgid.0)
-                .await
-                .unwrap()
-            {
+            let literal = match db.get_message_literal(msg.chat.id.0, msgid.0).await? {
                 Some(l) => l,
                 None => {
                     bot.send_message(msg.chat.id, "No such message found to edit. Look if you replying bot's message and this message is supposed to be editable").await?;
@@ -203,8 +217,7 @@ async fn edit_msg_cmd_handler(
                     lang,
                     is_caption_set: false,
                 })
-                .await
-                .unwrap();
+                .await?;
             bot.send_message(
                 msg.chat.id,
                 "Ok, now you have to send message text (formatting supported)",
@@ -225,7 +238,7 @@ async fn edit_msg_handler(
     dialogue: BotDialogue,
     (literal, lang, is_caption_set): (String, String, bool),
     msg: Message,
-) -> Result<(), teloxide::RequestError> {
+) -> BotResult<()> {
     use teloxide::utils::render::Renderer;
 
     let chat_id = msg.chat.id;
@@ -239,31 +252,30 @@ async fn edit_msg_handler(
 
     match msg.media_kind {
         MediaKind::Text(text) => {
-            db.drop_media(&literal).await.unwrap();
+            db.drop_media(&literal).await?;
             if is_caption_set {
                 return Ok(());
             };
             let html_text = Renderer::new(&text.text, &text.entities).as_html();
-            db.set_literal(&literal, &html_text).await.unwrap();
+            db.set_literal(&literal, &html_text).await?;
             bot.send_message(chat_id, "Updated text of message!")
                 .await?;
-            dialogue.exit().await.unwrap();
+            dialogue.exit().await?;
         }
         MediaKind::Photo(photo) => {
             let group = photo.media_group_id;
             if let Some(group) = group.clone() {
-                db.drop_media_except(&literal, &group).await.unwrap();
+                db.drop_media_except(&literal, &group).await?;
             } else {
-                db.drop_media(&literal).await.unwrap();
+                db.drop_media(&literal).await?;
             }
             let file_id = photo.photo[0].file.id.clone();
             db.add_media(&literal, "photo", &file_id, group.as_deref())
-                .await
-                .unwrap();
+                .await?;
             match photo.caption {
                 Some(text) => {
                     let html_text = Renderer::new(&text, &photo.caption_entities).as_html();
-                    db.set_literal(&literal, &html_text).await.unwrap();
+                    db.set_literal(&literal, &html_text).await?;
                     bot.send_message(chat_id, "Updated photo caption!").await?;
                 }
                 None => {
@@ -272,10 +284,9 @@ async fn edit_msg_handler(
                     // set text empty
                     if !db
                         .is_media_group_exists(group.as_deref().unwrap_or(""))
-                        .await
-                        .unwrap()
+                        .await?
                     {
-                        db.set_literal(&literal, "").await.unwrap();
+                        db.set_literal(&literal, "").await?;
                         bot.send_message(chat_id, "Set photo without caption")
                             .await?;
                     };
@@ -293,8 +304,7 @@ async fn edit_msg_handler(
                     lang,
                     is_caption_set: true,
                 })
-                .await
-                .unwrap();
+                .await?;
             tokio::spawn(async move {
                 tokio::time::sleep(Duration::from_millis(200)).await;
                 dialogue.exit().await.unwrap_or(());
@@ -303,18 +313,17 @@ async fn edit_msg_handler(
         MediaKind::Video(video) => {
             let group = video.media_group_id;
             if let Some(group) = group.clone() {
-                db.drop_media_except(&literal, &group).await.unwrap();
+                db.drop_media_except(&literal, &group).await?;
             } else {
-                db.drop_media(&literal).await.unwrap();
+                db.drop_media(&literal).await?;
             }
             let file_id = video.video.file.id;
             db.add_media(&literal, "video", &file_id, group.as_deref())
-                .await
-                .unwrap();
+                .await?;
             match video.caption {
                 Some(text) => {
                     let html_text = Renderer::new(&text, &video.caption_entities).as_html();
-                    db.set_literal(&literal, &html_text).await.unwrap();
+                    db.set_literal(&literal, &html_text).await?;
                     bot.send_message(chat_id, "Updated video caption!").await?;
                 }
                 None => {
@@ -323,10 +332,9 @@ async fn edit_msg_handler(
                     // set text empty
                     if !db
                         .is_media_group_exists(group.as_deref().unwrap_or(""))
-                        .await
-                        .unwrap()
+                        .await?
                     {
-                        db.set_literal(&literal, "").await.unwrap();
+                        db.set_literal(&literal, "").await?;
                         bot.send_message(chat_id, "Set video without caption")
                             .await?;
                     };
@@ -344,8 +352,7 @@ async fn edit_msg_handler(
                     lang,
                     is_caption_set: true,
                 })
-                .await
-                .unwrap();
+                .await?;
             tokio::spawn(async move {
                 tokio::time::sleep(Duration::from_millis(200)).await;
                 dialogue.exit().await.unwrap_or(());
@@ -362,12 +369,7 @@ async fn edit_msg_handler(
 
 fn command_handler(
     config: Config,
-) -> Handler<
-    'static,
-    DependencyMap,
-    Result<(), teloxide::RequestError>,
-    teloxide::dispatching::DpHandlerDescription,
-> {
+) -> Handler<'static, DependencyMap, BotResult<()>, teloxide::dispatching::DpHandlerDescription> {
     Update::filter_message()
         .branch(
             dptree::entry()
@@ -383,11 +385,14 @@ fn command_handler(
         .branch(
             dptree::entry()
                 .filter_async(async |msg: Message, mut db: DB| {
-                    let tguser = msg.from.unwrap();
+                    let tguser = match msg.from.clone() {
+                        Some(user) => user,
+                        None => return false, // do nothing, cause its not usecase of function
+                    };
                     let user = db
                         .get_or_init_user(tguser.id.0 as i64, &tguser.first_name)
                         .await;
-                    user.is_admin
+                    user.map(|u| u.is_admin).unwrap_or(false)
                 })
                 .filter_command::<AdminCommands>()
                 .endpoint(admin_command_handler),
@@ -399,14 +404,20 @@ async fn user_command_handler(
     bot: Bot,
     msg: Message,
     cmd: UserCommands,
-) -> Result<(), teloxide::RequestError> {
-    let tguser = msg.from.clone().unwrap();
+) -> BotResult<()> {
+    let tguser = match msg.from.clone() {
+        Some(user) => user,
+        None => return Ok(()), // do nothing, cause its not usecase of function
+    };
     let user = db
         .get_or_init_user(tguser.id.0 as i64, &tguser.first_name)
-        .await;
-    let user = update_user_tg(user, msg.from.as_ref().unwrap());
-    user.update_user(&mut db).await.unwrap();
-    println!("MSG: {}", msg.html_text().unwrap());
+        .await?;
+    let user = update_user_tg(user, &tguser);
+    user.update_user(&mut db).await?;
+    println!(
+        "MSG: {}",
+        msg.html_text().unwrap_or("|EMPTY_MESSAGE|".into())
+    );
     match cmd {
         UserCommands::Start => {
             let mut db2 = db.clone();
@@ -415,9 +426,10 @@ async fn user_command_handler(
                 msg.chat.id.0,
                 &mut db,
                 "start",
-                Some(make_start_buttons(&mut db2).await),
+                Some(make_start_buttons(&mut db2).await?),
             )
-            .await
+            .await?;
+            Ok(())
         }
         UserCommands::Help => {
             bot.send_message(msg.chat.id, UserCommands::descriptions().to_string())
@@ -433,13 +445,12 @@ async fn answer_message<RM: Into<ReplyMarkup>>(
     db: &mut DB,
     literal: &str,
     keyboard: Option<RM>,
-) -> Result<(), teloxide::RequestError> {
+) -> BotResult<()> {
     let text = db
         .get_literal_value(literal)
-        .await
-        .unwrap()
+        .await?
         .unwrap_or("Please, set content of this message".into());
-    let media = db.get_media(literal).await.unwrap();
+    let media = db.get_media(literal).await?;
     let (chat_id, msg_id) = match media.len() {
         // just a text
         0 => {
@@ -551,16 +562,14 @@ async fn answer_message<RM: Into<ReplyMarkup>>(
             (msg[0].chat.id.0, msg[0].id.0)
         }
     };
-    db.set_message_literal(chat_id, msg_id, literal)
-        .await
-        .unwrap();
+    db.set_message_literal(chat_id, msg_id, literal).await?;
     Ok(())
 }
 
-async fn make_start_buttons(db: &mut DB) -> InlineKeyboardMarkup {
+async fn make_start_buttons(db: &mut DB) -> BotResult<InlineKeyboardMarkup> {
     let mut buttons: Vec<Vec<InlineKeyboardButton>> = db
         .get_all_events()
-        .await
+        .await?
         .iter()
         .map(|e| {
             vec![InlineKeyboardButton::callback(
@@ -574,10 +583,10 @@ async fn make_start_buttons(db: &mut DB) -> InlineKeyboardMarkup {
         "more_info",
     )]);
 
-    InlineKeyboardMarkup::new(buttons)
+    Ok(InlineKeyboardMarkup::new(buttons))
 }
 
-async fn echo(bot: Bot, msg: Message) -> Result<(), teloxide::RequestError> {
+async fn echo(bot: Bot, msg: Message) -> BotResult<()> {
     if let Some(photo) = msg.photo() {
         println!("File ID: {}", photo[0].file.id);
     }
