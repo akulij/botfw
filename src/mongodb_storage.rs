@@ -36,6 +36,26 @@ pub struct Dialogue {
     dialogue: Vec<u32>,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum MongodbStorageError<SE>
+where
+    SE: Debug + Display,
+{
+    MongodbError(#[from] mongodb::error::Error),
+    SerdeError(SE),
+}
+
+pub type MongodbStorageResult<T, SE> = Result<T, MongodbStorageError<SE>>;
+
+impl<SE> std::fmt::Display for MongodbStorageError<SE>
+where
+    SE: Debug + Display,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 impl<S, D> Storage<D> for MongodbStorage<S>
 where
     S: Send + Sync + Serializer<D> + 'static,
@@ -43,7 +63,7 @@ where
 
     <S as Serializer<D>>::Error: Debug + Display,
 {
-    type Error = mongodb::error::Error;
+    type Error = MongodbStorageError<<S as Serializer<D>>::Error>;
 
     fn remove_dialogue(
         self: std::sync::Arc<Self>,
@@ -56,7 +76,8 @@ where
             let d = self.database.collection::<Dialogue>("dialogues");
             d.delete_one(doc! { "chat_id": chat_id.0 })
                 .await
-                .map(|_| ())
+                .map(|_| ())?;
+            Ok(())
         })
     }
 
@@ -71,14 +92,19 @@ where
         Box::pin(async move {
             let d = self.database.collection::<Dialogue>("dialogues");
             d.update_one(
-                        doc! {
-                            "chat_id": chat_id.0
-                        },
-                        doc! {
-                            "$set": doc! {
-                                "dialogue": self.serializer.serialize(&dialogue).unwrap().into_iter().map(|v| v as u32).collect::<Vec<u32>>()
-                            }
-                    }).upsert(true).await?;
+                doc! {
+                    "chat_id": chat_id.0
+                },
+                doc! {
+                        "$set": doc! {
+                            "dialogue": self.serializer.serialize(&dialogue)
+                                .map_err(MongodbStorageError::SerdeError)?
+                                .into_iter().map(|v| v as u32).collect::<Vec<u32>>()
+                        }
+                },
+            )
+            .upsert(true)
+            .await?;
             Ok(())
         })
     }
@@ -89,17 +115,23 @@ where
     ) -> BoxFuture<'static, Result<Option<D>, Self::Error>> {
         Box::pin(async move {
             let d = self.database.collection::<Dialogue>("dialogues");
-            Ok(d.find_one(doc! { "chat_id": chat_id.0 }).await?.map(|d| {
-                self.serializer
-                    .deserialize(
-                        d.dialogue
-                            .into_iter()
-                            .map(|i| i as u8)
-                            .collect::<Vec<_>>()
-                            .as_slice(),
-                    )
-                    .unwrap()
-            }))
+            let d = d.find_one(doc! { "chat_id": chat_id.0 }).await?;
+            let d = match d {
+                Some(d) => d,
+                None => return Ok(None),
+            };
+            let d = self
+                .serializer
+                .deserialize(
+                    d.dialogue
+                        .into_iter()
+                        .map(|i| i as u8)
+                        .collect::<Vec<_>>()
+                        .as_slice(),
+                )
+                .map_err(MongodbStorageError::SerdeError)?;
+
+            Ok(Some(d))
         })
     }
 }
