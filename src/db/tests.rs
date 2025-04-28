@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use dotenvy;
 
 use super::CallDB;
@@ -7,7 +9,7 @@ async fn setup_db() -> DB {
     dotenvy::dotenv().unwrap();
     let db_url = std::env::var("DATABASE_URL").unwrap();
 
-    DB::new(db_url).await
+    DB::new(db_url).await.unwrap()
 }
 
 #[tokio::test]
