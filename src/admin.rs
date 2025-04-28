@@ -8,6 +8,7 @@ use crate::{
     db::{CallDB, DB},
     BotResult,
 };
+use log::info;
 
 // These are should not appear in /help
 #[derive(BotCommands, Clone)]
@@ -38,7 +39,7 @@ pub async fn admin_command_handler(
         Some(user) => user,
         None => return Ok(()), // do nothing, cause its not usecase of function
     };
-    println!(
+    info!(
         "MSG: {}",
         msg.html_text().unwrap_or("|EMPTY_MESSAGE|".into())
     );
@@ -79,7 +80,7 @@ pub async fn secret_command_handler(
     cmd: SecretCommands,
     admin_password: String,
 ) -> BotResult<()> {
-    println!("Admin Pass: {}", admin_password);
+    info!("Admin Pass: {}", admin_password);
     let tguser = match msg.from.clone() {
         Some(user) => user,
         None => return Ok(()), // do nothing, cause its not usecase of function
@@ -87,7 +88,7 @@ pub async fn secret_command_handler(
     let user = db
         .get_or_init_user(tguser.id.0 as i64, &tguser.first_name)
         .await?;
-    println!(
+    info!(
         "MSG: {}",
         msg.html_text().unwrap_or("|EMPTY_MESSAGE|".into())
     );

@@ -2,6 +2,7 @@ pub mod admin;
 pub mod db;
 pub mod mongodb_storage;
 
+use log::info;
 use std::time::Duration;
 
 use crate::admin::{admin_command_handler, AdminCommands};
@@ -53,7 +54,7 @@ trait LogMsg {
 
 impl LogMsg for <teloxide::Bot as teloxide::prelude::Requester>::SendMessage {
     fn log(self) -> Self {
-        println!("msg: {}", self.text);
+        info!("msg: {}", self.text);
         self
     }
 }
@@ -117,15 +118,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for event in events {
         match bc.db.create_event(event).await {
-            Ok(e) => println!("Created event {}", e._id),
-            Err(err) => println!("Failed to create event, error: {}", err),
+            Ok(e) => info!("Created event {}", e._id),
+            Err(err) => info!("Failed to create event, error: {}", err),
         }
     }
     //
 
     let handler = dptree::entry()
         .inspect(|u: Update| {
-            eprintln!("{u:#?}"); // Print the update to the console with inspect
+            info!("{u:#?}"); // Print the update to the console with inspect
         })
         .branch(Update::filter_callback_query().endpoint(callback_handler))
         .branch(command_handler(config))
@@ -242,11 +243,11 @@ async fn edit_msg_handler(
     use teloxide::utils::render::Renderer;
 
     let chat_id = msg.chat.id;
-    println!("Type: {:#?}", msg.kind);
+    info!("Type: {:#?}", msg.kind);
     let msg = if let MessageKind::Common(msg) = msg.kind {
         msg
     } else {
-        println!("Not a Common, somehow");
+        info!("Not a Common, somehow");
         return Ok(());
     };
 
@@ -414,7 +415,7 @@ async fn user_command_handler(
         .await?;
     let user = update_user_tg(user, &tguser);
     user.update_user(&mut db).await?;
-    println!(
+    info!(
         "MSG: {}",
         msg.html_text().unwrap_or("|EMPTY_MESSAGE|".into())
     );
@@ -460,7 +461,7 @@ async fn answer_message<RM: Into<ReplyMarkup>>(
                 None => msg,
             };
             let msg = msg.parse_mode(teloxide::types::ParseMode::Html);
-            println!("ENTS: {:?}", msg.entities);
+            info!("ENTS: {:?}", msg.entities);
             let msg = msg.await?;
 
             (msg.chat.id.0, msg.id.0)
@@ -588,7 +589,7 @@ async fn make_start_buttons(db: &mut DB) -> BotResult<InlineKeyboardMarkup> {
 
 async fn echo(bot: Bot, msg: Message) -> BotResult<()> {
     if let Some(photo) = msg.photo() {
-        println!("File ID: {}", photo[0].file.id);
+        info!("File ID: {}", photo[0].file.id);
     }
     bot.send_message(msg.chat.id, msg.html_text().unwrap_or("UNWRAP".into()))
         .parse_mode(teloxide::types::ParseMode::Html)
