@@ -1,4 +1,4 @@
-use super::super::{callback_info::CallbackInfo, CallDB, DB};
+use super::super::callback_info::CallbackInfo;
 use super::setup_db;
 
 use serde::{Deserialize, Serialize};
@@ -20,7 +20,7 @@ async fn test_store() {
 
     let ci = CI::new(Default::default());
 
-    ci.store(&mut db).await.unwrap();
+    let ci = ci.store(&mut db).await.unwrap();
 
     let ci = CI::get(&mut db, &ci.get_id()).await.unwrap();
 

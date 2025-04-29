@@ -1,4 +1,4 @@
-use crate::query_call;
+use crate::query_call_consume;
 use crate::CallDB;
 use bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
@@ -31,13 +31,13 @@ where
         self._id.to_hex()
     }
 
-    query_call!(store, self, db, (), {
+    query_call_consume!(store, self, db, Self, {
         let db = db.get_database().await;
         let ci = db.collection::<Self>("callback_info");
 
-        ci.insert_one(self).await?;
+        ci.insert_one(&self).await?;
 
-        Ok(())
+        Ok(self)
     });
 
     pub async fn get<D: CallDB>(db: &mut D, id: &str) -> DbResult<Option<Self>> {
