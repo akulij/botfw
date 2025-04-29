@@ -45,6 +45,14 @@ macro_rules! query_call {
     };
 }
 
+#[macro_export]
+macro_rules! query_call_consume {
+    ($func_name:ident, $self:ident, $db:ident, $return_type:ty, $body:block) => {
+        pub async fn $func_name<D: CallDB>($self, $db: &mut D)
+            -> DbResult<$return_type> $body
+    };
+}
+
 impl User {
     query_call!(update_user, self, db, (), {
         let db_collection = db.get_database().await.collection::<Self>("users");
