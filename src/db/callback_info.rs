@@ -55,4 +55,8 @@ where
             })
             .await?)
     }
+
+    pub async fn get_callback<D: CallDB>(db: &mut D, id: &str) -> DbResult<Option<C>> {
+        Self::get(db, id).await.map(|co| co.map(|c| c.callback))
+    }
 }
