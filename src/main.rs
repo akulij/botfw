@@ -2,7 +2,8 @@ pub mod admin;
 pub mod db;
 pub mod mongodb_storage;
 
-use log::info;
+use db::callback_info::CallbackInfo;
+use log::{info, warn};
 use std::time::Duration;
 
 use crate::admin::{admin_command_handler, AdminCommands};
@@ -69,6 +70,16 @@ pub enum State {
         is_caption_set: bool,
     },
 }
+
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "type")]
+#[serde(rename = "snake_case")]
+pub enum Callback {
+    MoreInfo,
+    DemoProject { id: u32 },
+}
+
+type CallbackStore = CallbackInfo<Callback>;
 
 pub struct BotController {
     pub bot: Bot,
@@ -175,21 +186,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 async fn callback_handler(bot: Bot, mut db: DB, q: CallbackQuery) -> BotResult<()> {
     bot.answer_callback_query(&q.id).await?;
 
-    if let Some(ref data) = q.data {
-        match data.as_str() {
-            "more_info" => {
-                answer_message(
-                    &bot,
-                    q.chat_id().map(|i| i.0).unwrap_or(q.from.id.0 as i64),
-                    &mut db,
-                    "more_info",
-                    None as Option<InlineKeyboardMarkup>,
-                )
-                .await?
-            }
-            _ => {} // do nothing, yet
+    let data = match q.data {
+        Some(ref data) => data,
+        None => {
+            // not really our case to handle
+            return Ok(());
         }
-    }
+    };
+
+    let callback = match CallbackStore::get_callback(&mut db, data).await? {
+        Some(callback) => callback,
+        None => {
+            warn!("Not found callback for data: {data}");
+            // doing this silently beacuse end user shouldn't know about backend internal data
+            return Ok(());
+        }
+    };
+
+    match callback {
+        Callback::MoreInfo => {
+            answer_message(
+                &bot,
+                q.chat_id().map(|i| i.0).unwrap_or(q.from.id.0 as i64),
+                &mut db,
+                "more_info",
+                None as Option<InlineKeyboardMarkup>,
+            )
+            .await?
+        }
+        _ => {
+            unimplemented!()
+        }
+    };
 
     Ok(())
 }
@@ -582,7 +610,10 @@ async fn make_start_buttons(db: &mut DB) -> BotResult<InlineKeyboardMarkup> {
         .collect();
     buttons.push(vec![InlineKeyboardButton::callback(
         "More info",
-        "more_info",
+        CallbackStore::new(Callback::MoreInfo)
+            .store(db)
+            .await?
+            .get_id(),
     )]);
 
     Ok(InlineKeyboardMarkup::new(buttons))
