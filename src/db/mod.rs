@@ -35,6 +35,7 @@ pub struct User {
     pub language_code: Option<String>,
 }
 
+#[macro_export]
 macro_rules! query_call {
     ($func_name:ident, $self:ident, $db:ident, $return_type:ty, $body:block) => {
         pub async fn $func_name<D: CallDB>(&$self, $db: &mut D)
