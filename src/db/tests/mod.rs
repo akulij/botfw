@@ -1,5 +1,6 @@
 #![allow(clippy::unwrap_used)]
 
+mod callback_info_tests;
 use dotenvy;
 
 use super::CallDB;
