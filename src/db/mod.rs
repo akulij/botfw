@@ -147,7 +147,11 @@ impl CallDB for DB {
     }
 }
 
-pub type DbError = mongodb::error::Error;
+#[derive(thiserror::Error, Debug)]
+pub enum DbError {
+    #[error("error while processing mongodb query: {0}")]
+    MongodbError(#[from] mongodb::error::Error),
+}
 pub type DbResult<T> = Result<T, DbError>;
 
 #[async_trait]
@@ -159,7 +163,7 @@ pub trait CallDB {
         let db = self.get_database().await;
         let users = db.collection::<User>("users");
 
-        users.find(doc! {}).await?.try_collect().await
+        Ok(users.find(doc! {}).await?.try_collect().await?)
     }
 
     async fn set_admin(&mut self, userid: i64, isadmin: bool) -> DbResult<()> {
@@ -279,7 +283,7 @@ pub trait CallDB {
         let db = self.get_database().await;
         let events = db.collection::<Event>("events");
 
-        events.find(doc! {}).await?.try_collect().await
+        Ok(events.find(doc! {}).await?.try_collect().await?)
     }
 
     async fn create_event(&mut self, event_datetime: chrono::DateTime<Utc>) -> DbResult<Event> {

@@ -49,9 +49,10 @@ where
             Err(_) => return Ok(None),
         };
 
-        ci.find_one(doc! {
-            "_id": id
-        })
-        .await
+        Ok(ci
+            .find_one(doc! {
+                "_id": id
+            })
+            .await?)
     }
 }
