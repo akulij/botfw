@@ -125,6 +125,9 @@ impl DB {
         let db = self.get_database().await;
         /// some migrations doesn't realy need type of collection
         type AnyCollection = Event;
+        db.collection::<AnyCollection>("events")
+            .drop_indexes()
+            .await?;
         let events = self.get_database().await.collection::<Event>("events");
         events
             .create_index(
@@ -135,6 +138,9 @@ impl DB {
             )
             .await?;
 
+        db.collection::<AnyCollection>("events")
+            .drop_indexes()
+            .await?;
         // clear callbacks after a day because otherwise database will contain so much data
         // for just button clicks
         let callback_info = self
