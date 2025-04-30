@@ -6,6 +6,7 @@ pub mod utils;
 use db::callback_info::CallbackInfo;
 use log::{info, warn};
 use std::time::Duration;
+use utils::create_callback_button;
 
 use crate::admin::{admin_command_handler, AdminCommands};
 use crate::admin::{secret_command_handler, SecretCommands};
@@ -214,6 +215,10 @@ async fn callback_handler(bot: Bot, mut db: DB, q: CallbackQuery) -> BotResult<(
                 None as Option<InlineKeyboardMarkup>,
             )
             .await?
+        }
+        Callback::ProjectPage { id } => {
+            bot.send_message(q.from.id, format!("Some project No: {id}"))
+                .await?;
         }
         _ => {
             unimplemented!()
@@ -609,13 +614,21 @@ async fn make_start_buttons(db: &mut DB) -> BotResult<InlineKeyboardMarkup> {
             )]
         })
         .collect();
-    buttons.push(vec![InlineKeyboardButton::callback(
-        "More info",
-        CallbackStore::new(Callback::MoreInfo)
-            .store(db)
-            .await?
-            .get_id(),
-    )]);
+    buttons.push(vec![
+        InlineKeyboardButton::callback(
+            "More info",
+            CallbackStore::new(Callback::MoreInfo)
+                .store(db)
+                .await?
+                .get_id(),
+        ),
+        create_callback_button(
+            "show_projects",
+            CallbackStore::new(Callback::ProjectPage { id: 1 }),
+            db,
+        )
+        .await?,
+    ]);
 
     Ok(InlineKeyboardMarkup::new(buttons))
 }
