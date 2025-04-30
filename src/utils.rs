@@ -15,6 +15,19 @@ macro_rules! single_button_markup {
     };
 }
 
+#[macro_export]
+macro_rules! stacked_buttons_markup {
+    ($( $button:expr ),+) => {
+        InlineKeyboardMarkup {
+            inline_keyboard: vec![
+                $(
+                    vec![$button]
+                )*
+            ],
+        }
+    };
+}
+
 pub async fn create_callback_button<C, D>(
     literal: &str,
     ci: CallbackInfo<C>,
