@@ -1,6 +1,7 @@
 pub mod admin;
 pub mod db;
 pub mod mongodb_storage;
+pub mod utils;
 
 use db::callback_info::CallbackInfo;
 use log::{info, warn};
