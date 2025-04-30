@@ -613,13 +613,9 @@ async fn make_start_buttons(db: &mut DB) -> BotResult<InlineKeyboardMarkup> {
         )
         .await?,
     ]);
-    buttons.push(vec![InlineKeyboardButton::callback(
-        "More info",
-        CallbackStore::new(Callback::MoreInfo)
-            .store(db)
-            .await?
-            .get_id(),
-    )]);
+    buttons.push(vec![
+        create_callback_button("more_info", CallbackStore::new(Callback::MoreInfo), db).await?,
+    ]);
 
     Ok(InlineKeyboardMarkup::new(buttons))
 }
