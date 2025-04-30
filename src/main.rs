@@ -75,7 +75,7 @@ pub enum State {
 
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "type")]
-#[serde(rename = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum Callback {
     MoreInfo,
     ProjectPage { id: u32 },
