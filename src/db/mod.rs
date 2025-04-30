@@ -330,6 +330,24 @@ pub trait CallDB {
         Ok(new_event)
     }
 
+    async fn delete_event(&mut self, event_datetime: chrono::DateTime<Utc>) -> DbResult<()> {
+        let db = self.get_database().await;
+        let events = db.collection::<Event>("events");
+
+        events.delete_one(doc! { "time": event_datetime }).await?;
+
+        Ok(())
+    }
+
+    async fn delete_all_events(&mut self) -> DbResult<usize> {
+        let db = self.get_database().await;
+        let events = db.collection::<Event>("events");
+
+        let delete_result = events.delete_many(doc! {}).await?;
+
+        Ok(delete_result.deleted_count as usize)
+    }
+
     async fn get_media(&mut self, literal: &str) -> DbResult<Vec<Media>> {
         let db = self.get_database().await;
         let media = db.collection::<Media>("media");
