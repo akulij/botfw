@@ -220,9 +220,6 @@ async fn callback_handler(bot: Bot, mut db: DB, q: CallbackQuery) -> BotResult<(
             bot.send_message(q.from.id, format!("Some project No: {id}"))
                 .await?;
         }
-        _ => {
-            unimplemented!()
-        }
     };
 
     Ok(())
