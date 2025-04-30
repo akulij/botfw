@@ -1,6 +1,9 @@
 use crate::query_call_consume;
 use crate::CallDB;
 use bson::oid::ObjectId;
+use chrono::DateTime;
+use chrono::FixedOffset;
+use chrono::Local;
 use serde::{Deserialize, Serialize};
 
 use super::DbResult;
@@ -12,6 +15,7 @@ where
     C: Serialize,
 {
     pub _id: bson::oid::ObjectId,
+    pub created_at: DateTime<FixedOffset>,
     #[serde(flatten)]
     pub callback: C,
 }
@@ -23,6 +27,7 @@ where
     pub fn new(callback: C) -> Self {
         Self {
             _id: Default::default(),
+            created_at: Local::now().into(),
             callback,
         }
     }
