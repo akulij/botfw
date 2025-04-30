@@ -1,5 +1,7 @@
 pub mod callback_info;
 
+use std::time::Duration;
+
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use enum_stringify::EnumStringify;
@@ -126,6 +128,25 @@ impl DB {
                 IndexModel::builder()
                     .keys(doc! {"time": 1})
                     .options(IndexOptions::builder().unique(true).build())
+                    .build(),
+            )
+            .await?;
+
+        // clear callbacks after a day because otherwise database will contain so much data
+        // for just button clicks
+        let callback_info = self
+            .get_database()
+            .await
+            .collection::<Event>("callback_info");
+        callback_info
+            .create_index(
+                IndexModel::builder()
+                    .keys(doc! {"created_at": 1})
+                    .options(
+                        IndexOptions::builder()
+                            .expire_after(Duration::from_secs(60 * 60 * 24 /* 1 day */))
+                            .build(),
+                    )
                     .build(),
             )
             .await?;
