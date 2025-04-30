@@ -62,6 +62,14 @@ impl LogMsg for <teloxide::Bot as teloxide::prelude::Requester>::SendMessage {
     }
 }
 
+macro_rules! single_button_markup {
+    ($button:expr) => {
+        InlineKeyboardMarkup {
+            inline_keyboard: vec![vec![$button]],
+        }
+    };
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub enum State {
     #[default]
