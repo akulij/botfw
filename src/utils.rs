@@ -6,6 +6,7 @@ use crate::{
     BotResult,
 };
 
+#[macro_export]
 macro_rules! single_button_markup {
     ($button:expr) => {
         InlineKeyboardMarkup {
