@@ -122,6 +122,9 @@ impl DB {
     }
 
     pub async fn migrate(&mut self) -> DbResult<()> {
+        let db = self.get_database().await;
+        /// some migrations doesn't realy need type of collection
+        type AnyCollection = Event;
         let events = self.get_database().await.collection::<Event>("events");
         events
             .create_index(
@@ -137,7 +140,7 @@ impl DB {
         let callback_info = self
             .get_database()
             .await
-            .collection::<Event>("callback_info");
+            .collection::<AnyCollection>("callback_info");
         callback_info
             .create_index(
                 IndexModel::builder()
