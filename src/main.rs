@@ -604,24 +604,7 @@ async fn answer_message<RM: Into<ReplyMarkup>>(
 }
 
 async fn make_start_buttons(db: &mut DB) -> BotResult<InlineKeyboardMarkup> {
-    let mut buttons: Vec<Vec<InlineKeyboardButton>> = db
-        .get_all_events()
-        .await?
-        .iter()
-        .map(|e| {
-            vec![InlineKeyboardButton::callback(
-                e.time.with_timezone(&Asia::Dubai).to_string(),
-                format!("event:{}", e._id),
-            )]
-        })
-        .collect();
-    buttons.push(vec![InlineKeyboardButton::callback(
-        "More info",
-        CallbackStore::new(Callback::MoreInfo)
-            .store(db)
-            .await?
-            .get_id(),
-    )]);
+    let mut buttons: Vec<Vec<InlineKeyboardButton>> = Vec::new();
     buttons.push(vec![
         create_callback_button(
             "show_projects",
@@ -630,6 +613,13 @@ async fn make_start_buttons(db: &mut DB) -> BotResult<InlineKeyboardMarkup> {
         )
         .await?,
     ]);
+    buttons.push(vec![InlineKeyboardButton::callback(
+        "More info",
+        CallbackStore::new(Callback::MoreInfo)
+            .store(db)
+            .await?
+            .get_id(),
+    )]);
 
     Ok(InlineKeyboardMarkup::new(buttons))
 }
