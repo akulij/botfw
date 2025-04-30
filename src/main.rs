@@ -116,6 +116,7 @@ impl std::fmt::Display for BotError {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv()?;
+    pretty_env_logger::init();
     let config = Config::init_from_env()?;
 
     let mut bc = BotController::new(&config).await?;
