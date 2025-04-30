@@ -74,6 +74,8 @@ command = [
 need_stdout = true
 allow_warnings = true
 background = true
+[jobs.run.env]
+RUST_LOG = "info"
 
 # Run your long-running application (eg server) and have the result displayed in bacon.
 # For programs that never stop (eg a server), `background` is set to false
