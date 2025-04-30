@@ -254,8 +254,11 @@ async fn edit_msg_cmd_handler(
                 .await?;
             bot.send_message(
                 msg.chat.id,
-                "Ok, now you have to send message text (formatting supported)",
-            )
+                "Ok, now you have to send message text (formatting supported)\n\
+                 <b>Notice:</b> if this message supposed to replace message (tg shows them as edited) \
+                 or be raplaced, do NOT send message with multiple media, only single photo, video etc. \
+                 To get more information about why, see in /why_media_group",
+            ).parse_mode(ParseMode::Html)
             .await?;
         }
         None => {
