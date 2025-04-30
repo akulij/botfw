@@ -76,7 +76,7 @@ pub enum State {
 #[serde(rename = "snake_case")]
 pub enum Callback {
     MoreInfo,
-    DemoProject { id: u32 },
+    ProjectPage { id: u32 },
 }
 
 type CallbackStore = CallbackInfo<Callback>;
