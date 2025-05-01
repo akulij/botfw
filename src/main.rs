@@ -84,6 +84,7 @@ pub enum State {
 pub enum Callback {
     MoreInfo,
     ProjectPage { id: u32 },
+    GoHome,
 }
 
 type CallbackStore = CallbackInfo<Callback>;
@@ -238,6 +239,26 @@ async fn callback_handler(bot: Bot, mut db: DB, q: CallbackQuery) -> BotResult<(
         Callback::ProjectPage { id } => {
             bot.send_message(q.from.id, format!("Some project No: {id}"))
                 .await?;
+        }
+        Callback::GoHome => {
+            let keyboard = make_start_buttons(&mut db).await?;
+
+            replace_message(
+                &bot,
+                &mut db,
+                q.chat_id().map(|i| i.0).unwrap_or(q.from.id.0 as i64),
+                q.message.map_or_else(
+                    || {
+                        Err(BotError::MsgTooOld(
+                            "Failed to get message id, probably message too old".to_string(),
+                        ))
+                    },
+                    |m| Ok(m.id().0),
+                )?,
+                "start",
+                Some(keyboard),
+            )
+            .await?
         }
     };
 
