@@ -21,8 +21,8 @@ use serde::{Deserialize, Serialize};
 use teloxide::dispatching::dialogue::serializer::Json;
 use teloxide::dispatching::dialogue::{GetChatId, Serializer};
 use teloxide::types::{
-    InlineKeyboardButton, InlineKeyboardMarkup, InputFile, InputMedia, MediaKind, MessageKind,
-    ParseMode, ReplyMarkup,
+    InlineKeyboardButton, InlineKeyboardMarkup, InputFile, InputMedia, MediaKind, MessageId,
+    MessageKind, ParseMode, ReplyMarkup,
 };
 use teloxide::{
     payloads::SendMessageSetters,
@@ -606,6 +606,82 @@ async fn answer_message<RM: Into<ReplyMarkup>>(
         }
     };
     db.set_message_literal(chat_id, msg_id, literal).await?;
+    Ok(())
+}
+
+async fn replace_message(
+    bot: &Bot,
+    db: &mut DB,
+    chat_id: i64,
+    message_id: i32,
+    literal: &str,
+    keyboard: Option<InlineKeyboardMarkup>,
+) -> BotResult<()> {
+    let text = db
+        .get_literal_value(literal)
+        .await?
+        .unwrap_or("Please, set content of this message".into());
+    let media = db.get_media(literal).await?;
+    let (chat_id, msg_id) = match media.len() {
+        // just a text
+        0 => {
+            let msg = bot.edit_message_text(ChatId(chat_id), MessageId(message_id), text);
+            let msg = match keyboard {
+                Some(ref kbd) => msg.reply_markup(kbd.clone()),
+                None => msg,
+            };
+            let msg = msg.parse_mode(teloxide::types::ParseMode::Html);
+            info!("ENTS: {:?}", msg.entities);
+            let msg = match msg.await {
+                Ok(msg) => msg,
+                Err(teloxide::RequestError::Api(teloxide::ApiError::Unknown(errtext)))
+                    if errtext.as_str()
+                        == "Bad Request: there is no text in the message to edit" =>
+                {
+                    // fallback to sending message
+                    warn!("Fallback into sending message instead of editing because it contains media");
+                    return answer_message(bot, chat_id, db, literal, keyboard).await;
+                }
+                Err(err) => return Err(err.into()),
+            };
+
+            (msg.chat.id.0, msg.id.0)
+        }
+        // single media
+        1 => {
+            let media = &media[0]; // safe, cause we just checked len
+            let input_file = InputFile::file_id(media.file_id.to_string());
+            let media = match media.media_type.as_str() {
+                "photo" => InputMedia::Photo(teloxide::types::InputMediaPhoto::new(input_file)),
+                "video" => InputMedia::Video(teloxide::types::InputMediaVideo::new(input_file)),
+                _ => todo!(),
+            };
+            let msg = bot
+                .edit_message_media(ChatId(chat_id), MessageId(message_id), media)
+                .await?;
+
+            let msg = bot.edit_message_caption(ChatId(chat_id), MessageId(message_id));
+            let msg = match text.as_str() {
+                "" => msg,
+                text => msg.caption(text),
+            };
+            let msg = match keyboard {
+                Some(kbd) => msg.reply_markup(kbd),
+                None => msg,
+            };
+
+            let msg = msg.parse_mode(teloxide::types::ParseMode::Html);
+            let msg = msg.await?;
+
+            (msg.chat.id.0, msg.id.0)
+        }
+        // >= 2, should use media group
+        _ => {
+            unreachable!();
+        }
+    };
+    db.set_message_literal(chat_id, msg_id, literal).await?;
+
     Ok(())
 }
 
