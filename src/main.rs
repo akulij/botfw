@@ -71,6 +71,7 @@ pub enum State {
         lang: String,
         is_caption_set: bool,
     },
+    EditButton,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -432,6 +433,7 @@ fn command_handler(
                     user.map(|u| u.is_admin).unwrap_or(false)
                 })
                 .filter_command::<AdminCommands>()
+                .enter_dialogue::<Message, MongodbStorage<Json>, State>()
                 .endpoint(admin_command_handler),
         )
 }

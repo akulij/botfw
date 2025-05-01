@@ -3,11 +3,11 @@ use teloxide::{
     utils::{command::BotCommands, render::RenderMessageTextHelper},
 };
 
-use crate::LogMsg;
 use crate::{
     db::{CallDB, DB},
     BotResult,
 };
+use crate::{BotDialogue, LogMsg, State};
 use log::info;
 
 // These are should not appear in /help
@@ -27,6 +27,8 @@ pub enum AdminCommands {
     Pin,
     /// Removes your admin privileges
     Deop,
+    /// Send command and then click button to edits text in it
+    EditButton,
 }
 
 pub async fn admin_command_handler(
@@ -34,6 +36,7 @@ pub async fn admin_command_handler(
     bot: Bot,
     msg: Message,
     cmd: AdminCommands,
+    dialogue: BotDialogue,
 ) -> BotResult<()> {
     let tguser = match msg.from.clone() {
         Some(user) => user,
@@ -66,6 +69,12 @@ pub async fn admin_command_handler(
         AdminCommands::Deop => {
             db.set_admin(tguser.id.0 as i64, false).await?;
             bot.send_message(msg.chat.id, "You are not an admin anymore")
+                .await?;
+            Ok(())
+        }
+        AdminCommands::EditButton => {
+            dialogue.update(State::EditButton).await?;
+            bot.send_message(msg.chat.id, "Click button which text should be edited")
                 .await?;
             Ok(())
         }
