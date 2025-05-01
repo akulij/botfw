@@ -213,12 +213,25 @@ async fn callback_handler(bot: Bot, mut db: DB, q: CallbackQuery) -> BotResult<(
 
     match callback {
         Callback::MoreInfo => {
-            answer_message(
+            let keyboard = Some(single_button_markup!(
+                create_callback_button("go_home", CallbackStore::new(Callback::GoHome), &mut db,)
+                    .await?
+            ));
+
+            replace_message(
                 &bot,
-                q.chat_id().map(|i| i.0).unwrap_or(q.from.id.0 as i64),
                 &mut db,
+                q.chat_id().map(|i| i.0).unwrap_or(q.from.id.0 as i64),
+                q.message.map_or_else(
+                    || {
+                        Err(BotError::MsgTooOld(
+                            "Failed to get message id, probably message too old".to_string(),
+                        ))
+                    },
+                    |m| Ok(m.id().0),
+                )?,
                 "more_info",
-                None as Option<InlineKeyboardMarkup>,
+                keyboard,
             )
             .await?
         }
