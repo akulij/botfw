@@ -34,6 +34,15 @@ where
         }
     }
 
+    pub fn new_with_literal(callback: C, literal: String) -> Self {
+        Self {
+            _id: Default::default(),
+            created_at: Local::now().into(),
+            literal: Some(literal),
+            callback,
+        }
+    }
+
     pub fn get_id(&self) -> String {
         self._id.to_hex()
     }
