@@ -16,6 +16,7 @@ where
 {
     pub _id: bson::oid::ObjectId,
     pub created_at: DateTime<FixedOffset>,
+    pub literal: Option<String>,
     #[serde(flatten)]
     pub callback: C,
 }
@@ -28,6 +29,7 @@ where
         Self {
             _id: Default::default(),
             created_at: Local::now().into(),
+            literal: None,
             callback,
         }
     }
