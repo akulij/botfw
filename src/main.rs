@@ -109,6 +109,7 @@ pub enum BotError {
     TeloxideError(#[from] teloxide::RequestError),
     // TODO: not a really good to hardcode types, better to extend it later
     StorageError(#[from] mongodb_storage::MongodbStorageError<<Json as Serializer<State>>::Error>),
+    MsgTooOld(String),
 }
 
 pub type BotResult<T> = Result<T, BotError>;
