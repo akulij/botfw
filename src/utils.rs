@@ -21,7 +21,7 @@ macro_rules! stacked_buttons_markup {
         InlineKeyboardMarkup {
             inline_keyboard: vec![
                 $(
-                    vec![$button]
+                    vec![$button],
                 )*
             ],
         }
