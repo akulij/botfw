@@ -302,8 +302,45 @@ async fn callback_handler(bot: Bot, mut db: DB, q: CallbackQuery) -> BotResult<(
             .await?
         }
         Callback::ProjectPage { id } => {
-            bot.send_message(q.from.id, format!("Some project No: {id}"))
-                .await?;
+            let nextproject = db
+                .get_literal_value(&format!("project_{}_msg", id + 1))
+                .await?
+                .unwrap_or("emptyproject".into());
+            let keyboard = match nextproject.to_lowercase().as_str() {
+                "end" | "empty" | "none" => {
+                    stacked_buttons_markup!(
+                        create_callback_button("go_home", Callback::GoHome, &mut db).await?
+                    )
+                }
+                _ => {
+                    stacked_buttons_markup!(
+                        create_callback_button(
+                            "next_project",
+                            Callback::ProjectPage { id: id + 1 },
+                            &mut db
+                        )
+                        .await?,
+                        create_callback_button("go_home", Callback::GoHome, &mut db).await?
+                    )
+                }
+            };
+
+            replace_message(
+                &bot,
+                &mut db,
+                q.chat_id().map(|i| i.0).unwrap_or(q.from.id.0 as i64),
+                q.message.map_or_else(
+                    || {
+                        Err(BotError::MsgTooOld(
+                            "Failed to get message id, probably message too old".to_string(),
+                        ))
+                    },
+                    |m| Ok(m.id().0),
+                )?,
+                &format!("project_{}_msg", id),
+                Some(keyboard),
+            )
+            .await?
         }
         Callback::GoHome => {
             let keyboard = make_start_buttons(&mut db).await?;
