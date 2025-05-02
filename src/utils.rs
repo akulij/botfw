@@ -64,3 +64,10 @@ where
         teloxide::types::InlineKeyboardButtonKind::CallbackData(ci.get_id()),
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use teloxide::types::InlineKeyboardButton;
+    use teloxide::types::InlineKeyboardMarkup;
+}
