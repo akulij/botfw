@@ -150,6 +150,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .inspect(|u: Update| {
             info!("{u:#?}"); // Print the update to the console with inspect
         })
+        .branch(
+            Update::filter_callback_query()
+                .filter_async(async |q: CallbackQuery, mut db: DB| {
+                    let tguser = q.from.clone();
+                    let user = db
+                        .get_or_init_user(tguser.id.0 as i64, &tguser.first_name)
+                        .await;
+                    user.map(|u| u.is_admin).unwrap_or(false)
+                })
+                .enter_dialogue::<CallbackQuery, MongodbStorage<Json>, State>()
+                .branch(dptree::case![State::EditButton].endpoint(button_edit_callback)),
+        )
         .branch(Update::filter_callback_query().endpoint(callback_handler))
         .branch(command_handler(config))
         .branch(
