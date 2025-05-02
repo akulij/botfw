@@ -922,6 +922,12 @@ async fn make_start_buttons(db: &mut DB) -> BotResult<InlineKeyboardMarkup> {
     buttons.push(vec![
         create_callback_button("more_info", Callback::MoreInfo, db).await?,
     ]);
+    buttons.push(vec![
+        create_callback_button("leave_application", Callback::LeaveApplication, db).await?,
+    ]);
+    buttons.push(vec![
+        create_callback_button("ask_question", Callback::AskQuestion, db).await?,
+    ]);
 
     Ok(InlineKeyboardMarkup::new(buttons))
 }
