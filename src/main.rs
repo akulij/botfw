@@ -296,7 +296,7 @@ async fn callback_handler(bot: Bot, mut db: DB, q: CallbackQuery) -> BotResult<(
                     },
                     |m| Ok(m.id().0),
                 )?,
-                "more_info",
+                "more_info_msg",
                 keyboard,
             )
             .await?
