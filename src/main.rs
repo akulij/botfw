@@ -15,7 +15,7 @@ use crate::mongodb_storage::MongodbStorage;
 
 use chrono::{DateTime, Utc};
 use chrono_tz::Asia;
-use db::DbError;
+use db::{DbError, Literal};
 use envconfig::Envconfig;
 use serde::{Deserialize, Serialize};
 use teloxide::dispatching::dialogue::serializer::Json;
@@ -281,8 +281,7 @@ async fn callback_handler(bot: Bot, mut db: DB, q: CallbackQuery) -> BotResult<(
     match callback {
         Callback::MoreInfo => {
             let keyboard = Some(single_button_markup!(
-                create_callback_button("go_home", CallbackStore::new(Callback::GoHome), &mut db,)
-                    .await?
+                create_callback_button("go_home", Callback::GoHome, &mut db).await?
             ));
 
             replace_message(
@@ -788,15 +787,10 @@ async fn replace_message(
 async fn make_start_buttons(db: &mut DB) -> BotResult<InlineKeyboardMarkup> {
     let mut buttons: Vec<Vec<InlineKeyboardButton>> = Vec::new();
     buttons.push(vec![
-        create_callback_button(
-            "show_projects",
-            CallbackStore::new(Callback::ProjectPage { id: 1 }),
-            db,
-        )
-        .await?,
+        create_callback_button("show_projects", Callback::ProjectPage { id: 1 }, db).await?,
     ]);
     buttons.push(vec![
-        create_callback_button("more_info", CallbackStore::new(Callback::MoreInfo), db).await?,
+        create_callback_button("more_info", Callback::MoreInfo, db).await?,
     ]);
 
     Ok(InlineKeyboardMarkup::new(buttons))

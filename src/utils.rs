@@ -30,7 +30,7 @@ macro_rules! stacked_buttons_markup {
 
 pub async fn create_callback_button<C, D>(
     literal: &str,
-    ci: CallbackInfo<C>,
+    callback: C,
     db: &mut D,
 ) -> BotResult<InlineKeyboardButton>
 where
@@ -41,7 +41,9 @@ where
         .get_literal_value(literal)
         .await?
         .unwrap_or("Please, set content of this message".into());
-    let ci = ci.store(db).await?;
+    let ci = CallbackInfo::new_with_literal(callback, literal.to_string())
+        .store(db)
+        .await?;
 
     Ok(InlineKeyboardButton::new(
         text,
