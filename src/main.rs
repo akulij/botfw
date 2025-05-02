@@ -193,6 +193,59 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+async fn button_edit_callback(
+    bot: Bot,
+    mut db: DB,
+    dialogue: BotDialogue,
+    q: CallbackQuery,
+) -> BotResult<()> {
+    bot.answer_callback_query(&q.id).await?;
+
+    let id = match q.data {
+        Some(id) => id,
+        None => {
+            bot.send_message(q.from.id, "Not compatible callback to edit text on")
+                .await?;
+
+            return Ok(());
+        }
+    };
+
+    let ci = match CallbackStore::get(&mut db, &id).await? {
+        Some(ci) => ci,
+        None => {
+            bot.send_message(
+                q.from.id,
+                "Can't get button information. Maybe created not by this bot or message too old",
+            )
+            .await?;
+
+            return Ok(());
+        }
+    };
+    let literal = match ci.literal {
+        Some(l) => l,
+        None => {
+            bot.send_message(
+                q.from.id,
+                "This button is not editable (probably text is generated)",
+            )
+            .await?;
+
+            return Ok(());
+        }
+    };
+
+    let lang = "ru".to_string();
+    dialogue
+        .update(State::EditTextOnly { literal, lang })
+        .await?;
+
+    bot.send_message(q.from.id, "Send text of button").await?;
+
+    Ok(())
+}
+
 async fn callback_handler(bot: Bot, mut db: DB, q: CallbackQuery) -> BotResult<()> {
     bot.answer_callback_query(&q.id).await?;
 
