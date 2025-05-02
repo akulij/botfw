@@ -84,6 +84,7 @@ pub enum Callback {
     ProjectPage { id: u32 },
     GoHome,
     LeaveApplication,
+    AskQuestion, // Add this line for the new callback
 }
 
 type CallbackStore = CallbackInfo<Callback>;
@@ -373,6 +374,16 @@ async fn callback_handler(bot: Bot, mut db: DB, q: CallbackQuery) -> BotResult<(
                 q.from.id.0 as i64,
                 &mut db,
                 "left_application_msg",
+                None as Option<InlineKeyboardMarkup>,
+            )
+            .await?;
+        }
+        Callback::AskQuestion => {
+            answer_message(
+                &bot,
+                q.from.id.0 as i64,
+                &mut db,
+                "ask_question_msg",
                 None as Option<InlineKeyboardMarkup>,
             )
             .await?;
