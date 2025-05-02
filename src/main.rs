@@ -4,7 +4,7 @@ pub mod mongodb_storage;
 pub mod utils;
 
 use db::callback_info::CallbackInfo;
-use log::{info, warn};
+use log::{error, info, warn};
 use std::time::Duration;
 use utils::create_callback_button;
 
@@ -366,6 +366,25 @@ async fn callback_handler(bot: Bot, mut db: DB, q: CallbackQuery) -> BotResult<(
     };
 
     Ok(())
+}
+
+/// This is an emergent situation function, so it should not return any Result, but handle Results
+/// on its own
+async fn notify_admin(text: &str) {
+    let config = match Config::init_from_env() {
+        Ok(config) => config,
+        Err(err) => {
+            error!("notify_admin: Failed to get config from env, err: {err}");
+            return;
+        }
+    };
+    let bot = Bot::new(&config.bot_token);
+    match bot.send_message(UserId(config.admin_id), text).await {
+        Ok(_) => {}
+        Err(err) => {
+            error!("notify_admin: Failed to send message to admin, WHATS WRONG???, err: {err}");
+        }
+    }
 }
 
 async fn edit_msg_cmd_handler(
