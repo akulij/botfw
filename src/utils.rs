@@ -70,4 +70,23 @@ mod tests {
     use super::*;
     use teloxide::types::InlineKeyboardButton;
     use teloxide::types::InlineKeyboardMarkup;
+
+    #[test]
+    fn test_buttons_markup() {
+        let button1 = InlineKeyboardButton::new(
+            "Button 1",
+            teloxide::types::InlineKeyboardButtonKind::CallbackData("callback1".into()),
+        );
+        let button2 = InlineKeyboardButton::new(
+            "Button 2",
+            teloxide::types::InlineKeyboardButtonKind::CallbackData("callback2".into()),
+        );
+
+        let markup = buttons_markup!([button1.clone(), button2.clone()], [button1.clone()]);
+
+        assert_eq!(markup.inline_keyboard.len(), 2);
+        assert_eq!(markup.inline_keyboard[0][0].text, "Button 1");
+        assert_eq!(markup.inline_keyboard[0][1].text, "Button 2");
+        assert_eq!(markup.inline_keyboard[1][0].text, "Button 1");
+    }
 }
