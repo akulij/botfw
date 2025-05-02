@@ -39,7 +39,7 @@ pub struct Config {
     pub db_url: String,
     #[envconfig(from = "ADMIN_PASS")]
     pub admin_password: String,
-    #[envconfig(from = "ADMIN_PASS")]
+    #[envconfig(from = "ADMIN_ID")]
     pub admin_id: u64,
 }
 
