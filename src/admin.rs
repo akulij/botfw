@@ -31,6 +31,8 @@ pub enum AdminCommands {
     EditButton,
     /// Set specified literal value
     SetLiteral { literal: String },
+    /// Sets chat where this message entered as support's chats
+    SetChat,
 }
 
 pub async fn admin_command_handler(
@@ -91,6 +93,13 @@ pub async fn admin_command_handler(
             bot.send_message(msg.chat.id, "Send message for literal")
                 .await?;
 
+            Ok(())
+        }
+        AdminCommands::SetChat => {
+            dialogue.exit().await?;
+            db.set_literal("support_chat_id", &msg.chat.id.0.to_string())
+                .await?;
+            bot.send_message(msg.chat.id, "ChatId is set!").await?;
             Ok(())
         }
     }
