@@ -34,8 +34,7 @@ macro_rules! buttons_markup {
         InlineKeyboardMarkup {
             inline_keyboard: vec![
                 $(
-                    //$buttons.into_iter().collect::<Vec<_>>(),
-                    $buttons.to_vec(),
+                    $buttons.into_iter().collect::<Vec<_>>(),
                 )*
             ],
         }
