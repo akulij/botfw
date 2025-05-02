@@ -37,6 +37,7 @@ pub struct User {
     pub last_name: Option<String>,
     pub username: Option<String>,
     pub language_code: Option<String>,
+    pub metas: Vec<String>,
 }
 
 #[macro_export]
@@ -76,6 +77,23 @@ impl User {
 
         Ok(())
     });
+
+    pub async fn insert_meta<D: CallDB>(&self, db: &mut D, meta: &str) -> DbResult<()> {
+        let db_collection = db.get_database().await.collection::<Self>("users");
+
+        db_collection
+            .update_one(
+                doc! { "_id": self._id },
+                doc! {
+                    "$push": {
+                        "metas": meta,
+                    }
+                },
+            )
+            .await?;
+
+        Ok(())
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -215,7 +233,7 @@ pub trait CallDB {
                 doc! { "id": userid },
                 doc! {
                     "$set": doc! { "first_name": firstname},
-                    "$setOnInsert": doc! { "is_admin": false },
+                    "$setOnInsert": doc! { "is_admin": false, "metas": [] },
                 },
             )
             .upsert(true)
