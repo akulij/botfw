@@ -3,6 +3,7 @@ pub mod db;
 pub mod mongodb_storage;
 pub mod utils;
 
+use db::application::Application;
 use db::callback_info::CallbackInfo;
 use log::{error, info, warn};
 use std::time::Duration;
@@ -364,6 +365,55 @@ async fn callback_handler(bot: Bot, mut db: DB, q: CallbackQuery) -> BotResult<(
             .await?
         }
     };
+
+    Ok(())
+}
+
+async fn send_application_to_chat(
+    bot: &Bot,
+    db: &mut DB,
+    app: &Application<teloxide::types::User>,
+) -> BotResult<()> {
+    let chat_id: i64 = match db.get_literal_value("support_chat_id").await? {
+        Some(strcid) => match strcid.parse() {
+            Ok(cid) => cid,
+            Err(err) => {
+                notify_admin(&format!(
+                    "Support chat_id should be a number. Got: {strcid}, err: {err}.\n\
+                Anyways, applied user: {:?}",
+                    app.from
+                ))
+                .await;
+                return Ok(());
+            }
+        },
+        None => {
+            notify_admin(&format!(
+                "support_chat_id is not set!!!\nAnyways, applied user: {:?}",
+                app.from
+            ))
+            .await;
+            return Ok(());
+        }
+    };
+    let msg = match db.get_literal_value("application_format").await? {
+        Some(msg) => msg
+            .replace("{user_id}", app.from.id.0.to_string().as_str())
+            .replace(
+                "{username}",
+                app.from
+                    .username
+                    .clone()
+                    .unwrap_or("Username not set".to_string())
+                    .as_str(),
+            ),
+        None => {
+            notify_admin("format for support_chat_id is not set").await;
+            return Ok(());
+        }
+    };
+
+    bot.send_message(ChatId(chat_id), msg).await?;
 
     Ok(())
 }
