@@ -83,6 +83,7 @@ pub enum Callback {
     MoreInfo,
     ProjectPage { id: u32 },
     GoHome,
+    LeaveApplication,
 }
 
 type CallbackStore = CallbackInfo<Callback>;
@@ -363,6 +364,18 @@ async fn callback_handler(bot: Bot, mut db: DB, q: CallbackQuery) -> BotResult<(
                 Some(keyboard),
             )
             .await?
+        }
+        Callback::LeaveApplication => {
+            let application = Application::new(q.from.clone()).store(&mut db).await?;
+            send_application_to_chat(&bot, &mut db, &application).await?;
+            answer_message(
+                &bot,
+                q.from.id.0 as i64,
+                &mut db,
+                "left_application_msg",
+                None as Option<InlineKeyboardMarkup>,
+            )
+            .await?;
         }
     };
 
