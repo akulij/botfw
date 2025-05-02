@@ -246,7 +246,11 @@ async fn button_edit_callback(
 
     let lang = "ru".to_string();
     dialogue
-        .update(State::EditTextOnly { literal, lang })
+        .update(State::Edit {
+            literal,
+            lang,
+            is_caption_set: false,
+        })
         .await?;
 
     bot.send_message(q.from.id, "Send text of button").await?;
