@@ -122,7 +122,6 @@ impl DB {
     }
 
     pub async fn migrate(&mut self) -> DbResult<()> {
-        let db = self.get_database().await;
         /// some migrations doesn't realy need type of collection
         type AnyCollection = Event;
         let events = self.get_database().await.collection::<Event>("events");

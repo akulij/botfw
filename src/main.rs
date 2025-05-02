@@ -14,8 +14,7 @@ use crate::db::{CallDB, DB};
 use crate::mongodb_storage::MongodbStorage;
 
 use chrono::{DateTime, Utc};
-use chrono_tz::Asia;
-use db::{DbError, Literal};
+use db::DbError;
 use envconfig::Envconfig;
 use serde::{Deserialize, Serialize};
 use teloxide::dispatching::dialogue::serializer::Json;
@@ -792,8 +791,7 @@ async fn replace_message(
                 "video" => InputMedia::Video(teloxide::types::InputMediaVideo::new(input_file)),
                 _ => todo!(),
             };
-            let msg = bot
-                .edit_message_media(ChatId(chat_id), MessageId(message_id), media)
+            bot.edit_message_media(ChatId(chat_id), MessageId(message_id), media)
                 .await?;
 
             let msg = bot.edit_message_caption(ChatId(chat_id), MessageId(message_id));
