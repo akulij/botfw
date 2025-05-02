@@ -28,6 +28,20 @@ macro_rules! stacked_buttons_markup {
     };
 }
 
+#[macro_export]
+macro_rules! buttons_markup {
+    ($( $buttons:expr ),+) => {
+        InlineKeyboardMarkup {
+            inline_keyboard: vec![
+                $(
+                    //$buttons.into_iter().collect::<Vec<_>>(),
+                    $buttons.to_vec(),
+                )*
+            ],
+        }
+    };
+}
+
 pub async fn create_callback_button<C, D>(
     literal: &str,
     callback: C,
