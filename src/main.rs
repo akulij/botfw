@@ -48,7 +48,7 @@ pub struct Config {
 #[command(rename_rule = "lowercase")]
 enum UserCommands {
     /// The first message of user
-    Start,
+    Start(String),
     /// Shows this message.
     Help,
 }
@@ -692,7 +692,10 @@ async fn user_command_handler(
         msg.html_text().unwrap_or("|EMPTY_MESSAGE|".into())
     );
     match cmd {
-        UserCommands::Start => {
+        UserCommands::Start(meta) => {
+            if !meta.is_empty() {
+                user.insert_meta(&mut db, &meta).await?;
+            }
             let mut db2 = db.clone();
             answer_message(
                 &bot,
