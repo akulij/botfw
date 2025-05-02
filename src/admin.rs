@@ -29,6 +29,8 @@ pub enum AdminCommands {
     Deop,
     /// Send command and then click button to edits text in it
     EditButton,
+    /// Set specified literal value
+    SetLiteral { literal: String },
 }
 
 pub async fn admin_command_handler(
@@ -76,6 +78,19 @@ pub async fn admin_command_handler(
             dialogue.update(State::EditButton).await?;
             bot.send_message(msg.chat.id, "Click button which text should be edited")
                 .await?;
+            Ok(())
+        }
+        AdminCommands::SetLiteral { literal } => {
+            dialogue
+                .update(State::Edit {
+                    literal,
+                    lang: "ru".to_string(),
+                    is_caption_set: false,
+                })
+                .await?;
+            bot.send_message(msg.chat.id, "Send message for literal")
+                .await?;
+
             Ok(())
         }
     }
