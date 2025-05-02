@@ -71,10 +71,6 @@ pub enum State {
         lang: String,
         is_caption_set: bool,
     },
-    EditTextOnly {
-        literal: String,
-        lang: String,
-    },
     EditButton,
 }
 
