@@ -6,13 +6,8 @@ jobs:
     name: cargo build
     runs-on: ubuntu-latest
     steps:
-      - name: Restore cached toolchain 
-        id: cache-toolchain
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/.rustup/toolchains
-          key: ${{ runner.os }}-rust-toolchain
+      - run: rustup toolchain install stable --profile minimal
+      - uses: Swatinem/rust-cache@v2
 
       - uses: actions/checkout@v4
 
