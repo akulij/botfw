@@ -6,7 +6,7 @@ jobs:
     name: cargo build
     runs-on: ubuntu-latest
     steps:
-      - name: Restore cached Primes
+      - name: Restore cached toolchain 
         id: cache-toolchain
         uses: actions/cache/restore@v4
         with:
@@ -18,7 +18,9 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
-      - uses: actions/cache/save@v4
+      - name: Save cached toolchain 
+        id: cache-toolchain
+        uses: actions/cache/save@v4
         with:
           path: |
             ~/.rustup/toolchains
