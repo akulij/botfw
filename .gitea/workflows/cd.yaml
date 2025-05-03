@@ -11,7 +11,8 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: |
-            ~/.rustup/toolchains
+            ~/.rustup
+            ~/.cargo
           key: linux-rust-toolchainv2
       - name: Install minimal stable with clippy and rustfmt
         uses: actions-rs/toolchain@v1
