@@ -2,7 +2,7 @@ name: Build && Deploy
 on: [push]
 
 jobs:
-  test:
+  build:
     name: cargo build
     runs-on: ubuntu-latest
     steps:
