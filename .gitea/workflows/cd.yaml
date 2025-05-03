@@ -13,19 +13,6 @@ jobs:
           path: |
             ~/.rustup/toolchains
           key: ${{ runner.os }}-rust-toolchain
-      - name: Install minimal stable with clippy and rustfmt
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-      - name: Save cached toolchain 
-        id: cache-toolchain
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ~/.rustup
-            ~/.cargo
-          key: ${{ steps.cache-toolchain.outputs.cache-primary-key }}
 
       - uses: actions/checkout@v4
 
