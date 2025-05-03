@@ -19,7 +19,7 @@ jobs:
           profile: minimal
           toolchain: stable
       - name: Save cached toolchain 
-        id: cache-toolchain
+        id: cache-toolchain-save
         uses: actions/cache/save@v4
         with:
           path: |
@@ -39,7 +39,7 @@ jobs:
       - run: cargo build --release --target x86_64-unknown-linux-gnu
       - run: cargo test
       - name: Save cached cargo dependencies
-        id: cache-toolchain
+        id: cache-project-dependencies-restore
         uses: actions/cache/save@v4
         with:
           path: |
