@@ -6,7 +6,11 @@ jobs:
     name: cargo build
     runs-on: ubuntu-latest
     steps:
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Install minimal stable with clippy and rustfmt
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
       - uses: actions/checkout@v4
       - run: cargo build --release --target x86_64-unknown-linux-gnu
       - run: |
