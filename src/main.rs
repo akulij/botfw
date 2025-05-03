@@ -306,28 +306,39 @@ async fn callback_handler(bot: Bot, mut db: DB, q: CallbackQuery) -> BotResult<(
             .await?
         }
         Callback::ProjectPage { id } => {
-            let nextproject = db
+            let nextproject = match db
                 .get_literal_value(&format!("project_{}_msg", id + 1))
                 .await?
-                .unwrap_or("emptyproject".into());
-            let keyboard = match nextproject.to_lowercase().as_str() {
-                "end" | "empty" | "none" => {
-                    stacked_buttons_markup!(
-                        create_callback_button("go_home", Callback::GoHome, &mut db).await?
+                .unwrap_or("emptyproject".into())
+                .as_str()
+            {
+                "end" | "empty" | "none" => None,
+                _ => Some(
+                    create_callback_button(
+                        "next_project",
+                        Callback::ProjectPage { id: id + 1 },
+                        &mut db,
                     )
-                }
-                _ => {
-                    stacked_buttons_markup!(
-                        create_callback_button(
-                            "next_project",
-                            Callback::ProjectPage { id: id + 1 },
-                            &mut db
-                        )
-                        .await?,
-                        create_callback_button("go_home", Callback::GoHome, &mut db).await?
-                    )
-                }
+                    .await?,
+                ),
             };
+            let prevproject = match id.wrapping_sub(1) {
+                0 => None,
+                _ => Some(
+                    create_callback_button(
+                        "prev_project",
+                        Callback::ProjectPage {
+                            id: id.wrapping_sub(1),
+                        },
+                        &mut db,
+                    )
+                    .await?,
+                ),
+            };
+            let keyboard = buttons_markup!(
+                [prevproject, nextproject].into_iter().flatten(),
+                [create_callback_button("go_home", Callback::GoHome, &mut db).await?]
+            );
 
             replace_message(
                 &bot,
