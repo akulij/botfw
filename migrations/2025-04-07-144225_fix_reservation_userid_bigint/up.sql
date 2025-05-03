@@ -1,2 +1,0 @@
-ALTER TABLE reservations
-ALTER COLUMN user_id TYPE BIGINT;

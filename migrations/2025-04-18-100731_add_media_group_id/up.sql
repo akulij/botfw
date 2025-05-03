@@ -1,2 +1,0 @@
-ALTER TABLE media ADD COLUMN media_group_id VARCHAR NOT NULL;
-
