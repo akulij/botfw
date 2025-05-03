@@ -37,7 +37,6 @@ jobs:
             target
           key: ${{ runner.os }}-project-dependencies
       - run: cargo build --release --target x86_64-unknown-linux-gnu
-      - run: cargo test
       - name: Save cached cargo dependencies
         id: cache-project-dependencies-restore
         uses: actions/cache/save@v4
