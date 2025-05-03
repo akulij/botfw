@@ -6,8 +6,8 @@ jobs:
     name: cargo build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@v4
       - run: cargo build --release --target x86_64-unknown-linux-gnu
       - run: |
           ls target
