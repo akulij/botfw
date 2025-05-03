@@ -1,0 +1,11 @@
+name: Build && Deploy
+on: [push]
+
+jobs:
+  test:
+    name: cargo build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --target x86_64-unknown-linux-gnu
