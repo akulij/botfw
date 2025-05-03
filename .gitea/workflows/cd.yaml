@@ -6,7 +6,26 @@ jobs:
     name: cargo build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Restore cached toolchain 
+        id: cache-toolchain
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.rustup/toolchains
+          key: ${{ runner.os }}-rust-toolchainv2
+      - name: Install minimal stable with clippy and rustfmt
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+      - name: Save cached toolchain 
+        id: cache-toolchain
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.rustup
+            ~/.cargo
+          key: ${{ steps.cache-toolchain.outputs.cache-primary-key }}
 
       - uses: actions/checkout@v4
 
@@ -15,8 +34,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: |
-            ~/.rustup
-            ~/.cargo
+            target
           key: ${{ runner.os }}-project-dependencies
       - run: cargo build --release --target x86_64-unknown-linux-gnu
       - name: Save cached cargo dependencies
@@ -24,7 +42,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: |
-            ~/.rustup/toolchains
+            target
           key: ${{ steps.cache-project-dependencies.outputs.cache-primary-key }}
 
       - name: Upload Release Binary
@@ -32,3 +50,4 @@ jobs:
         with:
           name: botrunner
           path: target/x86_64-unknown-linux-gnu/release/gongbotrs
+
