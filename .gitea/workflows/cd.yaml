@@ -6,8 +6,7 @@ jobs:
     name: cargo build
     runs-on: ubuntu-latest
     steps:
-      - run: rustup toolchain install stable --profile minimal
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - uses: actions/checkout@v4
 
