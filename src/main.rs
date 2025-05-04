@@ -744,10 +744,24 @@ async fn answer_message_varianted<RM: Into<ReplyMarkup>>(
     variant: Option<&str>,
     keyboard: Option<RM>,
 ) -> BotResult<()> {
-    let text = db
-        .get_literal_value(literal)
-        .await?
-        .unwrap_or("Please, set content of this message".into());
+    let variant = match variant {
+        Some(variant) => {
+            let value = db.get_literal_alternative_value(literal, variant).await?;
+            if value.is_none() {
+                notify_admin(&format!("variant {variant} for literal {literal} is not found! falling back to just literal")).await;
+            }
+            value
+        }
+        None => None,
+    };
+    let text = match variant {
+        Some(text) => text,
+        None => db
+            .get_literal_value(literal)
+            .await?
+            .unwrap_or("Please, set content of this message".into()),
+    };
+
     let media = db.get_media(literal).await?;
     let (chat_id, msg_id) = match media.len() {
         // just a text
