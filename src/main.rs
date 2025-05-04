@@ -907,7 +907,13 @@ async fn answer_message_varianted<RM: Into<ReplyMarkup>>(
             (msg[0].chat.id.0, msg[0].id.0)
         }
     };
-    db.set_message_literal(chat_id, msg_id, literal).await?;
+    match variant {
+        Some(variant) => {
+            db.set_message_literal_variant(chat_id, msg_id, literal, variant)
+                .await?
+        }
+        None => db.set_message_literal(chat_id, msg_id, literal).await?,
+    };
     Ok(())
 }
 
