@@ -733,6 +733,17 @@ async fn answer_message<RM: Into<ReplyMarkup>>(
     literal: &str,
     keyboard: Option<RM>,
 ) -> BotResult<()> {
+    answer_message_varianted(bot, chat_id, db, literal, None, keyboard).await
+}
+
+async fn answer_message_varianted<RM: Into<ReplyMarkup>>(
+    bot: &Bot,
+    chat_id: i64,
+    db: &mut DB,
+    literal: &str,
+    variant: Option<&str>,
+    keyboard: Option<RM>,
+) -> BotResult<()> {
     let text = db
         .get_literal_value(literal)
         .await?
