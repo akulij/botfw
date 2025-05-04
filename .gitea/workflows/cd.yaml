@@ -55,7 +55,7 @@ jobs:
           key: ${{ steps.cache-project-dependencies.outputs.cache-primary-key }}
 
       - name: Upload Release Binary
-        uses: actions/upload-artifact@v3
+        uses: christopherhx/gitea-upload-artifact@v4
         with:
           name: botrunner
           path: target/x86_64-unknown-linux-gnu/release/gongbotrs
