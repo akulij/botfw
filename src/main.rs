@@ -937,10 +937,21 @@ async fn replace_message(
     literal: &str,
     keyboard: Option<InlineKeyboardMarkup>,
 ) -> BotResult<()> {
-    let text = db
-        .get_literal_value(literal)
+    let variant = db
+        .get_message(chat_id, message_id)
         .await?
-        .unwrap_or("Please, set content of this message".into());
+        .and_then(|m| m.variant);
+    let variant_text = match variant {
+        Some(ref variant) => db.get_literal_alternative_value(literal, variant).await?,
+        None => None,
+    };
+    let text = match variant_text {
+        Some(ref text) => text.to_string(),
+        None => db
+            .get_literal_value(literal)
+            .await?
+            .unwrap_or("Please, set content of this message".into()),
+    };
     let media = db.get_media(literal).await?;
     let (chat_id, msg_id) = match media.len() {
         // just a text
