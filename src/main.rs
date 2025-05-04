@@ -735,12 +735,17 @@ async fn user_command_handler(
             if !meta.is_empty() {
                 user.insert_meta(&mut db, &meta).await?;
             }
+            let variant = match meta.as_str() {
+                "" => None,
+                variant => Some(variant),
+            };
             let mut db2 = db.clone();
-            answer_message(
+            answer_message_varianted(
                 &bot,
                 msg.chat.id.0,
                 &mut db,
                 "start",
+                variant,
                 Some(make_start_buttons(&mut db2).await?),
             )
             .await?;
