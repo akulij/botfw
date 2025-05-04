@@ -103,6 +103,7 @@ pub struct Message {
     pub chat_id: i64,
     pub message_id: i64,
     pub token: String,
+    pub variant: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -291,6 +292,32 @@ pub trait CallDB {
                 },
                 doc! {
                     "$set": { "token": literal }
+                },
+            )
+            .upsert(true)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn set_message_literal_variant(
+        &mut self,
+        chatid: i64,
+        messageid: i32,
+        literal: &str,
+        variant: &str,
+    ) -> DbResult<()> {
+        let db = self.get_database().await;
+        let messages = db.collection::<Message>("messages");
+
+        messages
+            .update_one(
+                doc! {
+                    "chat_id": chatid,
+                    "message_id": messageid as i64
+                },
+                doc! {
+                    "$set": { "token": literal, "variant": variant }
                 },
             )
             .upsert(true)
