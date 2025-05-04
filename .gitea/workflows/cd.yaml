@@ -55,6 +55,7 @@ jobs:
           key: ${{ steps.cache-project-dependencies.outputs.cache-primary-key }}
 
       - name: Upload Release Binary
+        id: bot-artifact
         uses: christopherhx/gitea-upload-artifact@v4
         with:
           name: botrunner
