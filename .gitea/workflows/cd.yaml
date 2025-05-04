@@ -61,3 +61,6 @@ jobs:
           name: botrunner
           path: target/x86_64-unknown-linux-gnu/release/gongbotrs
 
+      - name: Deploy with WebHook
+        # temporary solutino to hardcode artifact url, because upload-artifact's artifact-url gives wrong one
+        run: curl http://${{ secrets.SERVER_ADDR }}/hooks/gongbot-deploy?binaryzip='https://git.akulij.ru/akulij/gongbotrs/actions/runs/${{ gitea.run_number }}/artifacts/botrunner'
