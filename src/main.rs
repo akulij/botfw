@@ -971,7 +971,16 @@ async fn replace_message(
                 {
                     // fallback to sending message
                     warn!("Fallback into sending message instead of editing because it contains media");
-                    return answer_message(bot, chat_id, db, literal, keyboard).await;
+                    return answer_message_varianted_silence_flag(
+                        bot,
+                        chat_id,
+                        db,
+                        literal,
+                        variant.as_deref(),
+                        true,
+                        keyboard,
+                    )
+                    .await;
                 }
                 Err(err) => return Err(err.into()),
             };
