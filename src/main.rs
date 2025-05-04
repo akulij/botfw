@@ -777,7 +777,7 @@ async fn answer_message_varianted<RM: Into<ReplyMarkup>>(
     variant: Option<&str>,
     keyboard: Option<RM>,
 ) -> BotResult<()> {
-    let variant = match variant {
+    let variant_text = match variant {
         Some(variant) => {
             let value = db.get_literal_alternative_value(literal, variant).await?;
             if value.is_none() {
@@ -787,7 +787,7 @@ async fn answer_message_varianted<RM: Into<ReplyMarkup>>(
         }
         None => None,
     };
-    let text = match variant {
+    let text = match variant_text {
         Some(text) => text,
         None => db
             .get_literal_value(literal)
