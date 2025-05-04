@@ -777,10 +777,22 @@ async fn answer_message_varianted<RM: Into<ReplyMarkup>>(
     variant: Option<&str>,
     keyboard: Option<RM>,
 ) -> BotResult<()> {
+    answer_message_varianted_silence_flag(bot, chat_id, db, literal, variant, false, keyboard).await
+}
+
+async fn answer_message_varianted_silence_flag<RM: Into<ReplyMarkup>>(
+    bot: &Bot,
+    chat_id: i64,
+    db: &mut DB,
+    literal: &str,
+    variant: Option<&str>,
+    silence_non_variant: bool,
+    keyboard: Option<RM>,
+) -> BotResult<()> {
     let variant_text = match variant {
         Some(variant) => {
             let value = db.get_literal_alternative_value(literal, variant).await?;
-            if value.is_none() {
+            if value.is_none() && !silence_non_variant {
                 notify_admin(&format!("variant {variant} for literal {literal} is not found! falling back to just literal")).await;
             }
             value
