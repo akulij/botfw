@@ -113,6 +113,14 @@ pub struct Literal {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct LiteralAlternative {
+    pub _id: bson::oid::ObjectId,
+    pub token: String,
+    pub variant: String,
+    pub value: String,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct Event {
     pub _id: bson::oid::ObjectId,
     pub time: DateTime<Utc>,
@@ -313,6 +321,51 @@ pub trait CallDB {
         literals
             .update_one(
                 doc! { "token": literal },
+                doc! { "$set": { "value": valuestr } },
+            )
+            .upsert(true)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn get_literal_alternative(
+        &mut self,
+        literal: &str,
+        variant: &str,
+    ) -> DbResult<Option<LiteralAlternative>> {
+        let db = self.get_database().await;
+        let messages = db.collection::<LiteralAlternative>("literal_alternatives");
+
+        let literal = messages
+            .find_one(doc! { "token": literal, "variant": variant })
+            .await?;
+
+        Ok(literal)
+    }
+
+    async fn get_literal_alternative_value(
+        &mut self,
+        literal: &str,
+        variant: &str,
+    ) -> DbResult<Option<String>> {
+        let literal = self.get_literal_alternative(literal, variant).await?;
+
+        Ok(literal.map(|l| l.value))
+    }
+
+    async fn set_literal_alternative(
+        &mut self,
+        literal: &str,
+        variant: &str,
+        valuestr: &str,
+    ) -> DbResult<()> {
+        let db = self.get_database().await;
+        let literals = db.collection::<LiteralAlternative>("literal_alternatives");
+
+        literals
+            .update_one(
+                doc! { "token": literal, "variant": variant },
                 doc! { "$set": { "value": valuestr } },
             )
             .upsert(true)
