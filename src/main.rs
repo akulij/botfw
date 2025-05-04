@@ -70,6 +70,7 @@ pub enum State {
     Start,
     Edit {
         literal: String,
+        variant: Option<String>,
         lang: String,
         is_caption_set: bool,
     },
@@ -187,6 +188,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .branch(
                     dptree::case![State::Edit {
                         literal,
+                        variant,
                         lang,
                         is_caption_set
                     }]
@@ -252,6 +254,7 @@ async fn button_edit_callback(
     dialogue
         .update(State::Edit {
             literal,
+            variant: None,
             lang,
             is_caption_set: false,
         })
@@ -494,6 +497,7 @@ async fn edit_msg_cmd_handler(
             dialogue
                 .update(State::Edit {
                     literal,
+                    variant: None,
                     lang,
                     is_caption_set: false,
                 })
@@ -519,7 +523,7 @@ async fn edit_msg_handler(
     bot: Bot,
     mut db: DB,
     dialogue: BotDialogue,
-    (literal, lang, is_caption_set): (String, String, bool),
+    (literal, variant, lang, is_caption_set): (String, Option<String>, String, bool),
     msg: Message,
 ) -> BotResult<()> {
     use teloxide::utils::render::Renderer;
@@ -531,6 +535,28 @@ async fn edit_msg_handler(
     } else {
         info!("Not a Common, somehow");
         return Ok(());
+    };
+
+    if let Some(variant) = variant {
+        if let MediaKind::Text(text) = msg.media_kind {
+            let html_text = Renderer::new(&text.text, &text.entities).as_html();
+
+            db.set_literal_alternative(&literal, &variant, &html_text)
+                .await?;
+            bot.send_message(chat_id, "Updated text of variant!")
+                .await?;
+
+            dialogue.exit().await?;
+            return Ok(());
+        } else {
+            bot.send_message(
+                chat_id,
+                "On variants only text alternating supported. Try to send text only",
+            )
+            .await?;
+
+            return Ok(());
+        }
     };
 
     match msg.media_kind {
@@ -584,6 +610,7 @@ async fn edit_msg_handler(
             dialogue
                 .update(State::Edit {
                     literal,
+                    variant: None,
                     lang,
                     is_caption_set: true,
                 })
@@ -632,6 +659,7 @@ async fn edit_msg_handler(
             dialogue
                 .update(State::Edit {
                     literal,
+                    variant: None,
                     lang,
                     is_caption_set: true,
                 })
