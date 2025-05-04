@@ -31,6 +31,9 @@ pub enum AdminCommands {
     EditButton,
     /// Set specified literal value
     SetLiteral { literal: String },
+    /// Set specified literal value
+    #[command(description = "handle a username and an age.", parse_with = "split")]
+    SetAlternative { literal: String, variant: String },
     /// Sets chat where this message entered as support's chats
     SetChat,
 }
@@ -86,11 +89,26 @@ pub async fn admin_command_handler(
             dialogue
                 .update(State::Edit {
                     literal,
+                    variant: None,
                     lang: "ru".to_string(),
                     is_caption_set: false,
                 })
                 .await?;
             bot.send_message(msg.chat.id, "Send message for literal")
+                .await?;
+
+            Ok(())
+        }
+        AdminCommands::SetAlternative { literal, variant } => {
+            dialogue
+                .update(State::Edit {
+                    literal,
+                    variant: Some(variant),
+                    lang: "ru".to_string(),
+                    is_caption_set: false,
+                })
+                .await?;
+            bot.send_message(msg.chat.id, "Send message for literal alternative")
                 .await?;
 
             Ok(())
