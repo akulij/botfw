@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use teloxide::{
     prelude::*,
     utils::{command::BotCommands, render::RenderMessageTextHelper},
@@ -36,6 +37,8 @@ pub enum AdminCommands {
     SetAlternative { literal: String, variant: String },
     /// Sets chat where this message entered as support's chats
     SetChat,
+    /// Shows user count and lists some of them
+    Users,
 }
 
 pub async fn admin_command_handler(
@@ -118,6 +121,31 @@ pub async fn admin_command_handler(
             db.set_literal("support_chat_id", &msg.chat.id.0.to_string())
                 .await?;
             bot.send_message(msg.chat.id, "ChatId is set!").await?;
+            Ok(())
+        }
+        AdminCommands::Users => {
+            let users = db.get_users().await?;
+            let count = users.len();
+            let user_list = users
+                .into_iter()
+                .take(5)
+                .map(|u| {
+                    format!(
+                        "  {}{}{}",
+                        u.first_name,
+                        u.last_name.map_or("".into(), |l| format!(" {l}")),
+                        u.username
+                            .map_or("".into(), |username| format!(" ({username})")),
+                    )
+                })
+                .join("\n");
+
+            bot.send_message(
+                msg.chat.id,
+                format!("Users count: {count}\nList:\n{user_list}"),
+            )
+            .await?;
+
             Ok(())
         }
     }
