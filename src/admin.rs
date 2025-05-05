@@ -39,6 +39,8 @@ pub enum AdminCommands {
     SetChat,
     /// Shows user count and lists some of them
     Users,
+    /// Cancel current action and sets user state to default
+    Cancel,
 }
 
 pub async fn admin_command_handler(
@@ -146,6 +148,12 @@ pub async fn admin_command_handler(
             )
             .await?;
 
+            Ok(())
+        }
+        AdminCommands::Cancel => {
+            dialogue.exit().await?;
+            bot.send_message(msg.chat.id, "canceled current action")
+                .await?;
             Ok(())
         }
     }
