@@ -137,7 +137,7 @@ pub async fn admin_command_handler(
                         u.first_name,
                         u.last_name.map_or("".into(), |l| format!(" {l}")),
                         u.username
-                            .map_or("".into(), |username| format!(" ({username})")),
+                            .map_or("".into(), |username| format!(" (@{username})")),
                     )
                 })
                 .join("\n");
