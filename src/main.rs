@@ -824,7 +824,7 @@ async fn answer_message<RM: Into<ReplyMarkup>>(
     db: &mut DB,
     literal: &str,
     keyboard: Option<RM>,
-) -> BotResult<()> {
+) -> BotResult<(i64, i32)> {
     answer_message_varianted(bot, chat_id, db, literal, None, keyboard).await
 }
 
@@ -835,7 +835,7 @@ async fn answer_message_varianted<RM: Into<ReplyMarkup>>(
     literal: &str,
     variant: Option<&str>,
     keyboard: Option<RM>,
-) -> BotResult<()> {
+) -> BotResult<(i64, i32)> {
     answer_message_varianted_silence_flag(bot, chat_id, db, literal, variant, false, keyboard).await
 }
 
@@ -847,7 +847,7 @@ async fn answer_message_varianted_silence_flag<RM: Into<ReplyMarkup>>(
     variant: Option<&str>,
     silence_non_variant: bool,
     keyboard: Option<RM>,
-) -> BotResult<()> {
+) -> BotResult<(i64, i32)> {
     let variant_text = match variant {
         Some(variant) => {
             let value = db.get_literal_alternative_value(literal, variant).await?;
@@ -985,7 +985,7 @@ async fn answer_message_varianted_silence_flag<RM: Into<ReplyMarkup>>(
         }
         None => db.set_message_literal(chat_id, msg_id, literal).await?,
     };
-    Ok(())
+    Ok((chat_id, msg_id))
 }
 
 async fn replace_message(
@@ -1030,7 +1030,7 @@ async fn replace_message(
                 {
                     // fallback to sending message
                     warn!("Fallback into sending message instead of editing because it contains media");
-                    return answer_message_varianted_silence_flag(
+                    answer_message_varianted_silence_flag(
                         bot,
                         chat_id,
                         db,
@@ -1039,7 +1039,8 @@ async fn replace_message(
                         true,
                         keyboard,
                     )
-                    .await;
+                    .await?;
+                    return Ok(());
                 }
                 Err(err) => return Err(err.into()),
             };
