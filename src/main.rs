@@ -439,8 +439,9 @@ async fn callback_handler(bot: Bot, mut db: DB, q: CallbackQuery) -> BotResult<(
         }
         Callback::LeaveApplication => {
             let application = Application::new(q.from.clone()).store(&mut db).await?;
-            send_application_to_chat(&bot, &mut db, &application).await?;
-            answer_message(
+            let msg = send_application_to_chat(&bot, &mut db, &application).await?;
+
+            let (chat_id, msg_id) = answer_message(
                 &bot,
                 q.from.id.0 as i64,
                 &mut db,
@@ -448,6 +449,9 @@ async fn callback_handler(bot: Bot, mut db: DB, q: CallbackQuery) -> BotResult<(
                 None as Option<InlineKeyboardMarkup>,
             )
             .await?;
+            MessageForward::new(msg.chat.id.0, msg.id.0, chat_id, msg_id, false)
+                .store(&mut db)
+                .await?;
         }
         Callback::AskQuestion => {
             answer_message(
