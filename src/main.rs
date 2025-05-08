@@ -468,7 +468,7 @@ async fn send_application_to_chat(
     bot: &Bot,
     db: &mut DB,
     app: &Application<teloxide::types::User>,
-) -> BotResult<()> {
+) -> BotResult<Message> {
     let chat_id: i64 = match db.get_literal_value("support_chat_id").await? {
         Some(strcid) => match strcid.parse() {
             Ok(cid) => cid,
@@ -479,7 +479,7 @@ async fn send_application_to_chat(
                     app.from
                 ))
                 .await;
-                return Ok(());
+                return Err(BotError::BotLogicError(format!("somewhere in bots logic support_chat_id literal not stored as a number, got: {strcid}")));
             }
         },
         None => {
@@ -488,7 +488,9 @@ async fn send_application_to_chat(
                 app.from
             ))
             .await;
-            return Ok(());
+            return Err(BotError::AdminMisconfiguration(format!(
+                "admin forget to set support_chat_id"
+            )));
         }
     };
     let msg = match db.get_literal_value("application_format").await? {
@@ -504,13 +506,13 @@ async fn send_application_to_chat(
             ),
         None => {
             notify_admin("format for support_chat_id is not set").await;
-            return Ok(());
+            return Err(BotError::AdminMisconfiguration(format!(
+                "admin forget to set application_format"
+            )));
         }
     };
 
-    bot.send_message(ChatId(chat_id), msg).await?;
-
-    Ok(())
+    Ok(bot.send_message(ChatId(chat_id), msg).await?)
 }
 
 /// This is an emergent situation function, so it should not return any Result, but handle Results
