@@ -114,6 +114,7 @@ pub enum BotError {
     StorageError(#[from] mongodb_storage::MongodbStorageError<<Json as Serializer<State>>::Error>),
     MsgTooOld(String),
     BotLogicError(String),
+    AdminMisconfiguration(String),
 }
 
 pub type BotResult<T> = Result<T, BotError>;
