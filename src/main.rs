@@ -254,7 +254,9 @@ async fn support_reply_handler(bot: Bot, mut db: DB, msg: Message) -> BotResult<
         _ => unreachable!(),
     };
 
-    let msg = bot.send_message(ChatId(mf.source_chat_id), text);
+    let msg = bot
+        .send_message(ChatId(mf.source_chat_id), text)
+        .parse_mode(ParseMode::Html);
     let msg = match mf.reply {
         false => msg,
         true => msg.reply_to(MessageId(mf.source_message_id)),
