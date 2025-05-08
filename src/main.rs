@@ -5,8 +5,10 @@ pub mod utils;
 
 use db::application::Application;
 use db::callback_info::CallbackInfo;
+use db::message_forward::MessageForward;
 use log::{error, info, warn};
 use std::time::Duration;
+use teloxide::sugar::request::RequestReplyExt;
 use utils::create_callback_button;
 
 use crate::admin::{admin_command_handler, AdminCommands};
@@ -111,6 +113,7 @@ pub enum BotError {
     // TODO: not a really good to hardcode types, better to extend it later
     StorageError(#[from] mongodb_storage::MongodbStorageError<<Json as Serializer<State>>::Error>),
     MsgTooOld(String),
+    BotLogicError(String),
 }
 
 pub type BotResult<T> = Result<T, BotError>;
@@ -186,6 +189,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .endpoint(edit_msg_cmd_handler),
                 )
                 .branch(
+                    Update::filter_message()
+                        .filter(|msg: Message| msg.reply_to_message().is_some())
+                        .filter(|state: State| matches!(state, State::Start))
+                        .endpoint(support_reply_handler),
+                )
+                .branch(
                     dptree::case![State::Edit {
                         literal,
                         variant,
@@ -203,6 +212,53 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build()
         .dispatch()
         .await;
+
+    Ok(())
+}
+
+async fn support_reply_handler(bot: Bot, mut db: DB, msg: Message) -> BotResult<()> {
+    use teloxide::utils::render::Renderer;
+
+    let rm = match msg.reply_to_message() {
+        Some(rm) => rm,
+        None => {
+            return Err(BotError::BotLogicError(
+                "support_reply_handler should not be called when no message is replied".to_string(),
+            ));
+        }
+    };
+    let (chat_id, message_id) = (rm.chat.id.0, rm.id.0);
+    let mf = match MessageForward::get(&mut db, chat_id, message_id).await? {
+        Some(mf) => mf,
+        None => {
+            bot.send_message(msg.chat.id, "No forwarded message found for your reply")
+                .await?;
+
+            return Ok(());
+        }
+    };
+
+    let text = match msg.kind {
+        MessageKind::Common(message_common) => match message_common.media_kind {
+            MediaKind::Text(media_text) => {
+                Renderer::new(&media_text.text, &media_text.entities).as_html()
+            }
+            _ => {
+                bot.send_message(msg.chat.id, "Only text messages currently supported!")
+                    .await?;
+                return Ok(());
+            }
+        },
+        // can't hapen because we already have check for reply
+        _ => unreachable!(),
+    };
+
+    let msg = bot.send_message(ChatId(mf.source_chat_id), text);
+    let msg = match mf.reply {
+        false => msg,
+        true => msg.reply_to(MessageId(mf.source_message_id)),
+    };
+    msg.await?;
 
     Ok(())
 }
