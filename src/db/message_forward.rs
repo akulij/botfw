@@ -9,18 +9,18 @@ use crate::CallDB;
 pub struct MessageForward {
     pub _id: bson::oid::ObjectId,
     pub chat_id: i64,
-    pub message_id: i64,
+    pub message_id: i32,
     pub source_chat_id: i64,
-    pub source_message_id: i64,
+    pub source_message_id: i32,
     pub reply: bool,
 }
 
 impl MessageForward {
     pub fn new(
         chat_id: i64,
-        message_id: i64,
+        message_id: i32,
         source_chat_id: i64,
-        source_message_id: i64,
+        source_message_id: i32,
         reply: bool,
     ) -> Self {
         Self {
@@ -45,7 +45,7 @@ impl MessageForward {
     pub async fn get<D: CallDB>(
         db: &mut D,
         chat_id: i64,
-        message_id: i64,
+        message_id: i32,
     ) -> DbResult<Option<Self>> {
         let db = db.get_database().await;
         let ci = db.collection::<Self>("message_forward");
