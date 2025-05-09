@@ -77,6 +77,7 @@ pub enum State {
         is_caption_set: bool,
     },
     EditButton,
+    MessageForwardReply,
 }
 
 #[derive(Serialize, Deserialize)]
