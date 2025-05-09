@@ -218,7 +218,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn support_reply_handler(bot: Bot, mut db: DB, msg: Message) -> BotResult<()> {
+async fn support_reply_handler(
+    bot: Bot,
+    mut db: DB,
+    msg: Message,
+    state_mgr: std::sync::Arc<MongodbStorage<Json>>,
+) -> BotResult<()> {
     use teloxide::utils::render::Renderer;
 
     let rm = match msg.reply_to_message() {
@@ -263,6 +268,9 @@ async fn support_reply_handler(bot: Bot, mut db: DB, msg: Message) -> BotResult<
         true => msg.reply_to(MessageId(mf.source_message_id)),
     };
     msg.await?;
+
+    let user_dialogue = BotDialogue::new(state_mgr, ChatId(mf.source_chat_id));
+    user_dialogue.update(State::MessageForwardReply).await?;
 
     Ok(())
 }
