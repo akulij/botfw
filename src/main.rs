@@ -6,6 +6,7 @@ pub mod utils;
 use db::application::Application;
 use db::callback_info::CallbackInfo;
 use db::message_forward::MessageForward;
+use itertools::Itertools;
 use log::{error, info, warn};
 use std::time::Duration;
 use teloxide::sugar::request::RequestReplyExt;
@@ -206,6 +207,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .endpoint(edit_msg_handler),
                 ),
         )
+        .branch(
+            Update::filter_message()
+                .enter_dialogue::<Message, MongodbStorage<Json>, State>()
+                .branch(dptree::case![State::MessageForwardReply].endpoint(user_reply_to_support)),
+        )
         .branch(Update::filter_message().endpoint(echo));
 
     Dispatcher::builder(bc.bot, handler)
@@ -214,6 +220,62 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build()
         .dispatch()
         .await;
+
+    Ok(())
+}
+async fn user_reply_to_support(bot: Bot, mut db: DB, msg: Message) -> BotResult<()> {
+    let (source_chat_id, source_message_id) = (msg.chat.id.0, msg.id.0);
+    let text = match msg.html_text() {
+        Some(text) => text,
+        // TODO: come up with better idea than just ignoring (say something to user)
+        None => return Ok(()),
+    };
+    let scid =
+        db.get_literal_value("support_chat_id")
+            .await?
+            .ok_or(BotError::AdminMisconfiguration(
+                "support_chat_id is not set".to_string(),
+            ))?;
+    let support_chat_id = match scid.parse::<i64>() {
+        Ok(cid) => cid,
+        Err(parseerr) => {
+            return Err(BotError::BotLogicError(format!(
+                "source_chat_id, got: {scid}, expected: i64, err: {parseerr}"
+            )))
+        }
+    };
+    let user = msg.from.ok_or(BotError::BotLogicError(
+        "Unable to get user somehow:/".to_string(),
+    ))?;
+    let parts = [
+        Some(user.first_name),
+        user.last_name,
+        user.username.map(|un| format!("(@{un})")),
+    ];
+    #[allow(unstable_name_collisions)]
+    let userformat: String = parts
+        .into_iter()
+        .flatten()
+        .intersperse(" ".to_string())
+        .collect();
+    let msgtext = format!("From: {userformat}\nMessage:\n{text}");
+
+    // TODO: fix bug: parse mode's purpose is to display user-formated text in right way,
+    // but there is a bug: user can inject html code with his first/last/user name
+    // it's not harmful, only visible to support, but still need a fix
+    let sentmsg = bot
+        .send_message(ChatId(support_chat_id), msgtext)
+        .parse_mode(ParseMode::Html)
+        .await?;
+    MessageForward::new(
+        sentmsg.chat.id.0,
+        sentmsg.id.0,
+        source_chat_id,
+        source_message_id,
+        true,
+    )
+    .store(&mut db)
+    .await?;
 
     Ok(())
 }
