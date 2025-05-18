@@ -10,6 +10,15 @@ const dialog = {
             state: "none"
         },
     },
+    stateful_msg_handlers: {
+        start: {}, // everything is by default, so just send message `start`
+        enter_name: {
+            handler: "enter_name", // name of the handler function. This field has a
+                                   // side effect: when is set, no automatic sending
+                                   // of message, should be sent manually in handler
+            state: "none"
+        },
+    }
 }
 
 const fmt = (number) => number.toString().padStart(2, '0');
