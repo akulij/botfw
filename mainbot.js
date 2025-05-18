@@ -1,9 +1,11 @@
 // db - is set globally
 
 const dialog = {
-    start: {
-        buttons: "start_buttons"
-    }
+    commands: {
+        start: {
+            buttons: "start_buttons"
+        },
+    },
 }
 
 const fmt = (number) => number.toString().padStart(2, '0');
