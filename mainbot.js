@@ -3,7 +3,7 @@
 const dialog = {
     commands: {
         start: {
-            buttons: "start_buttons"
+            buttons: "start_buttons",
         },
     },
 }
@@ -30,7 +30,7 @@ function start_buttons() {
 }
 
 const config = {
-    version: 1.1
+    version: 1.1,
 }
 
 // {config, dialog}
