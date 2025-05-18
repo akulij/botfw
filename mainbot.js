@@ -9,6 +9,7 @@ const dialog = {
         cancel: {
             state: "none"
         },
+        somecomplicatedcmd: {}
     },
     stateful_msg_handlers: {
         start: {}, // everything is by default, so just send message `start`
