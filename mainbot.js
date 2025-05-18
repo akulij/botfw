@@ -19,7 +19,7 @@ const dialog = {
                                    // of message, should be sent manually in handler
             state: "none"
         },
-    }
+    },
 }
 
 const fmt = (number) => number.toString().padStart(2, '0');
