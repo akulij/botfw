@@ -3,7 +3,7 @@
 const dialog = {
     commands: {
         start: {
-            buttons: "start_buttons",
+            buttons: "start_buttons", // default is `null`
             state: "start"
         },
         cancel: {
