@@ -1,7 +1,11 @@
+use std::collections::HashMap;
+
 use quickjs_rusty::Context;
 use quickjs_rusty::ContextError;
 use quickjs_rusty::ExecutionError;
 use quickjs_rusty::OwnedJsValue as JsValue;
+use serde::Deserialize;
+use serde::Serialize;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ScriptError {
@@ -13,10 +17,37 @@ pub enum ScriptError {
 
 pub type ScriptResult<T> = Result<T, ScriptError>;
 
+pub type BotFunction = String; // temporal workaround
+
 // TODO: remove this function since it is suitable only for early development
 #[allow(clippy::print_stdout)]
 fn print(s: String) {
     println!("{s}");
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct BotConfig {
+    version: f64,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Button {
+    name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct BotMessage {
+    // buttons: Vec<Button>
+    buttons: BotFunction,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct BotDialog(HashMap<String, BotMessage>);
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct RunnerConfig {
+    config: BotConfig,
+    dialog: BotDialog,
 }
 
 pub struct Runner {
