@@ -77,6 +77,22 @@ mod tests {
         println!("Val: {:?}", val.to_string());
     }
 
+    fn recursive_format(o: OwnedJsObject) -> String {
+        let props: Vec<_> = o.properties_iter().unwrap().map(|x| x.unwrap()).collect();
+        let sp: Vec<String> = props
+            .into_iter()
+            .map(|v| {
+                if v.is_object() {
+                    recursive_format(v.try_into_object().unwrap())
+                } else {
+                    format!("{:?}", v)
+                }
+            })
+            .collect();
+
+        format!("{:?}", sp)
+    }
+
     #[test]
     fn test_run_script_invalid() {
         let runner = Runner::init().unwrap();
