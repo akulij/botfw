@@ -50,6 +50,8 @@ impl Runner {
 #[allow(clippy::unwrap_used)]
 #[allow(clippy::print_stdout)]
 mod tests {
+    use quickjs_rusty::{serde::from_js, OwnedJsObject};
+
     use super::*;
 
     #[test]
