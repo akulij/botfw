@@ -77,6 +77,16 @@ mod tests {
         println!("Val: {:?}", val.to_string());
     }
 
+    #[test]
+    fn test_deserialization_main() {
+        let runner = Runner::init().unwrap();
+        let val = runner.run_script(include_str!("../mainbot.js")).unwrap();
+        let s: RunnerConfig = from_js(unsafe { runner.context.context_raw() }, &val).unwrap();
+        println!("deser: {:#?}", s);
+        let o = val.try_into_object().unwrap();
+        println!("o: {:?}", recursive_format(o));
+    }
+
     fn recursive_format(o: OwnedJsObject) -> String {
         let props: Vec<_> = o.properties_iter().unwrap().map(|x| x.unwrap()).collect();
         let sp: Vec<String> = props
