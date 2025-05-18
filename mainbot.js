@@ -2,7 +2,7 @@
 
 const dialog = {
     start: {
-        buttons: start_buttons
+        buttons: "start_buttons"
     }
 }
 
@@ -22,14 +22,15 @@ const formatDate = (date) => {
 function start_buttons() {
     const now = new Date();
     const dateFormated = formatDate(now);
-    print(console)
 
     // return 1
     return dateFormated
 }
 
 const config = {
-    version: 1.0
+    version: 1.1
 }
 
-{config, dialog}
+// {config, dialog}
+const c = {config: config, dialog: dialog}
+c
