@@ -4,6 +4,10 @@ const dialog = {
     commands: {
         start: {
             buttons: "start_buttons",
+            state: "start"
+        },
+        cancel: {
+            state: "none"
         },
     },
 }
