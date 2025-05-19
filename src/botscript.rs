@@ -17,7 +17,8 @@ pub enum ScriptError {
 
 pub type ScriptResult<T> = Result<T, ScriptError>;
 
-pub type BotFunction = String; // temporal workaround
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BotFunction(String); // temporal workaround
 
 // TODO: remove this function since it is suitable only for early development
 #[allow(clippy::print_stdout)]
