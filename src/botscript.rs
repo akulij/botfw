@@ -37,7 +37,7 @@ pub trait DeserializeJS {
 
 impl DeserializeJS for JsValue {
     fn js_into<'a, T: Deserialize<'a>>(&'a self) -> ScriptResult<T> {
-        let rc = from_js(self.context(), &self)?;
+        let rc = from_js(self.context(), self)?;
 
         Ok(rc)
     }
