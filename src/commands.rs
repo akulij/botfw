@@ -10,6 +10,7 @@ pub enum CommandError {
     ValidationError(String),
 }
 
+#[derive(Clone)]
 pub struct BotCommand {
     command: String,
     args: Option<String>,
