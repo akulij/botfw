@@ -159,6 +159,22 @@ mod tests {
         println!("o: {:?}", recursive_format(o));
     }
 
+    #[test]
+    fn test_func_deserialization_main() {
+        let runner = Runner::init().unwrap();
+        let _ = runner
+            .run_script("function cancel_buttons() {return 'cancelation'}")
+            .unwrap();
+
+        let f = BotFunction("cancel_buttons".to_string());
+        let res = f.call_context(&runner).unwrap();
+
+        println!("RES: {res:?}");
+        let sres: String = res.js_into().unwrap();
+        println!("Deserialized RES: {:?}", sres);
+        assert_eq!(sres, "cancelation");
+    }
+
     fn recursive_format(o: OwnedJsObject) -> String {
         let props: Vec<_> = o.properties_iter().unwrap().map(|x| x.unwrap()).collect();
         let sp: Vec<String> = props
