@@ -1,5 +1,6 @@
 pub mod admin;
 pub mod botscript;
+pub mod commands;
 pub mod db;
 pub mod mongodb_storage;
 pub mod utils;
