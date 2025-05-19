@@ -4,6 +4,7 @@ pub mod db;
 pub mod mongodb_storage;
 pub mod utils;
 
+use botscript::{Runner, RunnerConfig};
 use db::application::Application;
 use db::callback_info::CallbackInfo;
 use db::message_forward::MessageForward;
@@ -98,6 +99,7 @@ type CallbackStore = CallbackInfo<Callback>;
 pub struct BotController {
     pub bot: Bot,
     pub db: DB,
+    pub rc: RunnerConfig,
 }
 
 impl BotController {
@@ -105,7 +107,9 @@ impl BotController {
         let bot = Bot::new(&config.bot_token);
         let db = DB::init(&config.db_url).await?;
 
-        Ok(Self { bot, db })
+        let rc = Runner::init()?.init_config(include_str!("../mainbot.js"))?;
+
+        Ok(Self { bot, db, rc })
     }
 }
 
