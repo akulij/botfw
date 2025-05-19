@@ -6,11 +6,15 @@ pub mod mongodb_storage;
 pub mod utils;
 
 use botscript::{BotMessage, Runner, RunnerConfig};
+use commands::BotCommand;
 use db::application::Application;
 use db::callback_info::CallbackInfo;
 use db::message_forward::MessageForward;
 use itertools::Itertools;
 use log::{error, info, warn};
+use std::collections::HashMap;
+use std::str::FromStr;
+use std::sync::RwLock;
 use std::time::Duration;
 use teloxide::sugar::request::RequestReplyExt;
 use utils::create_callback_button;
@@ -158,11 +162,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     //
+    let cmdmap: std::sync::Arc<RwLock<HashMap<_, _>>> =
+        std::sync::Arc::new(RwLock::new(bc.rc.dialog.commands));
 
     let handler = dptree::entry()
         .inspect(|u: Update| {
             info!("{u:#?}"); // Print the update to the console with inspect
         })
+        .branch(
+            Update::filter_message()
+                .filter_map(|m: Message| m.text().and_then(|t| BotCommand::from_str(t).ok()))
+                .filter_map(move |bc: BotCommand| {
+                    let rc = std::sync::Arc::clone(&cmdmap);
+
+                    let cmdmap = rc.read().expect("RwLock lock on commands map failed");
+
+                    cmdmap.get(bc.command()).cloned()
+                })
+                .endpoint(botscript_command_handler),
+        )
         .branch(
             Update::filter_callback_query()
                 .filter_async(async |q: CallbackQuery, mut db: DB| {
