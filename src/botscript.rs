@@ -20,6 +20,13 @@ pub type ScriptResult<T> = Result<T, ScriptError>;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BotFunction(String); // temporal workaround
 
+impl BotFunction {
+    pub fn call_context(&self, runner: &Runner) -> ScriptResult<JsValue> {
+        let func_name = &self.0;
+
+        runner.run_script(&format!("{func_name}()"))
+    }
+}
 // TODO: remove this function since it is suitable only for early development
 #[allow(clippy::print_stdout)]
 fn print(s: String) {
