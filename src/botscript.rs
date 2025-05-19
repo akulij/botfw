@@ -27,6 +27,19 @@ impl BotFunction {
         runner.run_script(&format!("{func_name}()"))
     }
 }
+
+pub trait DeserializeJS {
+    fn js_into<'a, T: Deserialize<'a>>(&'a self) -> ScriptResult<T>;
+}
+
+impl DeserializeJS for JsValue {
+    fn js_into<'a, T: Deserialize<'a>>(&'a self) -> ScriptResult<T> {
+        let rc = from_js(self.context(), &self)?;
+
+        Ok(rc)
+    }
+}
+
 // TODO: remove this function since it is suitable only for early development
 #[allow(clippy::print_stdout)]
 fn print(s: String) {
