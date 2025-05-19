@@ -4,7 +4,7 @@ pub mod db;
 pub mod mongodb_storage;
 pub mod utils;
 
-use botscript::{Runner, RunnerConfig};
+use botscript::{BotMessage, Runner, RunnerConfig};
 use db::application::Application;
 use db::callback_info::CallbackInfo;
 use db::message_forward::MessageForward;
@@ -228,6 +228,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+async fn botscript_command_handler(bot: Bot, bm: BotMessage) -> BotResult<()> {
+    info!("Eval BM: {:?}", bm);
+
+    Ok(())
+}
+
 async fn user_reply_to_support(bot: Bot, mut db: DB, msg: Message) -> BotResult<()> {
     let (source_chat_id, source_message_id) = (msg.chat.id.0, msg.id.0);
     let text = match msg.html_text() {
