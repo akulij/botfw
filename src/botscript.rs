@@ -62,16 +62,22 @@ pub struct Button {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BotMessage {
     // buttons: Vec<Button>
-    buttons: BotFunction,
+    buttons: Option<BotFunction>,
+    state: Option<String>,
+
+    handler: Option<BotFunction>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct BotDialog(HashMap<String, BotMessage>);
+pub struct BotDialog {
+    pub commands: HashMap<String, BotMessage>,
+    stateful_msg_handlers: HashMap<String, BotMessage>,
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RunnerConfig {
     config: BotConfig,
-    dialog: BotDialog,
+    pub dialog: BotDialog,
 }
 
 pub struct Runner {
