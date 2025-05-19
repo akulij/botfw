@@ -104,6 +104,15 @@ impl Runner {
 
         Ok(val)
     }
+
+    pub fn init_config(&self, content: &str) -> ScriptResult<RunnerConfig> {
+        let val = self.run_script(content)?;
+
+        // let rc: RunnerConfig = from_js(unsafe { self.context.context_raw() }, &val)?;
+        let rc: RunnerConfig = val.js_into()?;
+
+        Ok(rc)
+    }
 }
 
 #[cfg(test)]
