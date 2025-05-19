@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use quickjs_rusty::serde::from_js;
 use quickjs_rusty::Context;
 use quickjs_rusty::ContextError;
 use quickjs_rusty::ExecutionError;
