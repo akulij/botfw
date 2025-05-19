@@ -13,6 +13,8 @@ pub enum ScriptError {
     ContextError(#[from] ContextError),
     #[error("error running: {0:?}")]
     ExecutionError(#[from] ExecutionError),
+    #[error("error from anyhow: {0:?}")]
+    SerdeError(#[from] quickjs_rusty::serde::Error),
 }
 
 pub type ScriptResult<T> = Result<T, ScriptError>;
