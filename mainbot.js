@@ -11,6 +11,9 @@ const dialog = {
         },
         somecomplicatedcmd: {}
     },
+    buttons: {
+        more_info: {},
+    },
     stateful_msg_handlers: {
         start: {}, // everything is by default, so just send message `start`
         enter_name: {
