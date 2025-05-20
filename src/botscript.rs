@@ -228,7 +228,7 @@ pub struct Button {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BotMessage {
     // buttons: Vec<Button>
-    buttons: Option<BotFunction>,
+    buttons: Option<KeyboardDefinition>,
     state: Option<String>,
 
     handler: Option<BotFunction>,
