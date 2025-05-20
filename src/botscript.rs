@@ -128,7 +128,97 @@ pub struct BotConfig {
     version: f64,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+pub trait ResolveValue {
+    type Value;
+
+    fn resolve(self, runner: &Runner) -> ScriptResult<Self::Value>;
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum KeyboardDefinition {
+    Rows(Vec<RowDefinition>),
+    Function(BotFunction),
+}
+
+impl ResolveValue for KeyboardDefinition {
+    type Value = Vec<<RowDefinition as ResolveValue>::Value>;
+
+    fn resolve(self, runner: &Runner) -> ScriptResult<Self::Value> {
+        match self {
+            KeyboardDefinition::Rows(rows) => rows.into_iter().map(|r| r.resolve(runner)).collect(),
+            KeyboardDefinition::Function(f) => {
+                Self::resolve(f.call_context(runner)?.js_into()?, runner)
+            }
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum RowDefinition {
+    Buttons(Vec<ButtonDefinition>),
+    Function(BotFunction),
+}
+
+impl ResolveValue for RowDefinition {
+    type Value = Vec<<ButtonDefinition as ResolveValue>::Value>;
+
+    fn resolve(self, runner: &Runner) -> ScriptResult<Self::Value> {
+        match self {
+            RowDefinition::Buttons(buttons) => {
+                buttons.into_iter().map(|b| b.resolve(runner)).collect()
+            }
+            RowDefinition::Function(f) => Self::resolve(f.call_context(runner)?.js_into()?, runner),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum ButtonDefinition {
+    Button(ButtonRaw),
+    ButtonLiteral(String),
+    Function(BotFunction),
+}
+
+impl ResolveValue for ButtonDefinition {
+    type Value = ButtonRaw;
+
+    fn resolve(self, runner: &Runner) -> ScriptResult<Self::Value> {
+        match self {
+            ButtonDefinition::Button(button) => Ok(button),
+            ButtonDefinition::ButtonLiteral(l) => Ok(ButtonRaw::from_literal(l)),
+            ButtonDefinition::Function(f) => {
+                Self::resolve(f.call_context(runner)?.js_into()?, runner)
+            }
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ButtonRaw {
+    name: ButtonName,
+    literal: Option<String>,
+    callback_name: String,
+}
+
+impl ButtonRaw {
+    pub fn from_literal(literal: String) -> Self {
+        ButtonRaw {
+            name: ButtonName::Literal {
+                literal: literal.clone(),
+            },
+            literal: Some(literal.clone()),
+            callback_name: literal,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum ButtonName {
+    Value { name: String },
+    Literal { literal: String },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Button {
     name: String,
 }
