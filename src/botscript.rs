@@ -1,10 +1,14 @@
 use std::collections::HashMap;
 
+use itertools::Itertools;
 use quickjs_rusty::serde::from_js;
+use quickjs_rusty::utils::create_null;
 use quickjs_rusty::Context;
 use quickjs_rusty::ContextError;
 use quickjs_rusty::ExecutionError;
+use quickjs_rusty::JsFunction;
 use quickjs_rusty::OwnedJsValue as JsValue;
+use quickjs_rusty::ValueError;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -16,6 +20,8 @@ pub enum ScriptError {
     ExecutionError(#[from] ExecutionError),
     #[error("error from anyhow: {0:?}")]
     SerdeError(#[from] quickjs_rusty::serde::Error),
+    #[error("error value: {0:?}")]
+    ValueError(#[from] ValueError),
 }
 
 pub type ScriptResult<T> = Result<T, ScriptError>;
@@ -40,6 +46,74 @@ impl DeserializeJS for JsValue {
         let rc = from_js(self.context(), self)?;
 
         Ok(rc)
+    }
+}
+
+#[derive(Default)]
+pub struct DeserializerJS {
+    fn_map: HashMap<String, JsFunction>,
+}
+
+impl DeserializerJS {
+    pub fn new() -> Self {
+        Self {
+            fn_map: HashMap::new(),
+        }
+    }
+
+    pub fn deserialize_js<'a, T: Deserialize<'a>>(value: &'a JsValue) -> ScriptResult<T> {
+        let mut s = Self::new();
+
+        s.inject_templates(value, "".to_string())?;
+
+        let res = value.js_into()?;
+
+        // val.map_functions(s.fn_map);
+
+        Ok(res)
+    }
+
+    pub fn inject_templates(
+        &mut self,
+        value: &JsValue,
+        path: String,
+    ) -> ScriptResult<Option<String>> {
+        if let Ok(f) = value.clone().try_into_function() {
+            self.fn_map.insert(path.clone(), f);
+            return Ok(Some(path));
+        } else if let Ok(o) = value.clone().try_into_object() {
+            let path = if path.is_empty() { path } else { path + "." }; // trying to avoid . in the start
+                                                                        // of stringified path
+            let res = o
+                .properties_iter()?
+                .chunks(2)
+                .into_iter()
+                // since chunks(2) is used and properties iterator over object
+                // always has even elements, unwrap will not fail
+                .map(
+                    #[allow(clippy::unwrap_used)]
+                    |mut chunk| (chunk.next().unwrap(), chunk.next().unwrap()),
+                )
+                .map(|(k, p)| k.and_then(|k| p.map(|p| (k, p))))
+                .filter_map(|m| m.ok())
+                .try_for_each(|(k, p)| {
+                    let k = match k.to_string() {
+                        Ok(k) => k,
+                        Err(err) => return Err(ScriptError::ValueError(err)),
+                    };
+                    let res = match self.inject_templates(&p, path.clone() + &k)? {
+                        Some(_) => o.set_property(&k, JsValue::new(o.context(), create_null())),
+                        None => Ok(()),
+                    };
+                    match res {
+                        Ok(res) => Ok(res),
+                        Err(err) => Err(ScriptError::ExecutionError(err)),
+                    }
+                });
+            res?;
+        };
+
+        Ok(None)
     }
 }
 
