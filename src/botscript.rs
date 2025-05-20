@@ -135,6 +135,7 @@ pub trait ResolveValue {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
 pub enum KeyboardDefinition {
     Rows(Vec<RowDefinition>),
     Function(BotFunction),
@@ -154,6 +155,7 @@ impl ResolveValue for KeyboardDefinition {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
 pub enum RowDefinition {
     Buttons(Vec<ButtonDefinition>),
     Function(BotFunction),
@@ -173,6 +175,7 @@ impl ResolveValue for RowDefinition {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
 pub enum ButtonDefinition {
     Button(ButtonRaw),
     ButtonLiteral(String),
@@ -213,6 +216,7 @@ impl ButtonRaw {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
 pub enum ButtonName {
     Value { name: String },
     Literal { literal: String },
