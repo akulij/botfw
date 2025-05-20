@@ -199,7 +199,6 @@ impl ResolveValue for ButtonDefinition {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ButtonRaw {
     name: ButtonName,
-    literal: Option<String>,
     callback_name: String,
 }
 
@@ -209,7 +208,6 @@ impl ButtonRaw {
             name: ButtonName::Literal {
                 literal: literal.clone(),
             },
-            literal: Some(literal.clone()),
             callback_name: literal,
         }
     }
