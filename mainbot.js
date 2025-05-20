@@ -7,6 +7,9 @@ const dialog = {
             state: "start"
         },
         cancel: {
+            buttons: [
+                [{name: {name: "Def"}, callback_name: "defcall"}]
+            ],
             state: "none"
         },
         somecomplicatedcmd: {}
