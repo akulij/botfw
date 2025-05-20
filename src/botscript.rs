@@ -219,6 +219,8 @@ mod tests {
         let runner = Runner::init().unwrap();
         let val = runner.run_script(include_str!("../mainbot.js")).unwrap();
         println!("config: {:?}", val);
+        let d: RunnerConfig = DeserializerJS::deserialize_js(&val).unwrap();
+        println!("desr rc: {:?}", d);
         let val = runner.run_script("start_buttons()").unwrap();
         println!("Val: {:?}", val.to_string());
     }
