@@ -24,6 +24,8 @@ pub enum ScriptError {
     SerdeError(#[from] quickjs_rusty::serde::Error),
     #[error("error value: {0:?}")]
     ValueError(#[from] ValueError),
+    #[error("error bot function execution: {0:?}")]
+    BotFunctionError(String),
 }
 
 pub type ScriptResult<T> = Result<T, ScriptError>;
@@ -95,6 +97,21 @@ impl BotFunction {
                 Ok(val)
             }
             FunctionMarker::StrTemplate(func_name) => runner.run_script(&format!("{func_name}()")),
+        }
+    }
+
+    pub fn call(&self) -> ScriptResult<JsValue> {
+        self.call_args(Default::default())
+    }
+
+    pub fn call_args(&self, args: Vec<JsValue>) -> ScriptResult<JsValue> {
+        if let FunctionMarker::Function(f) = &self.func {
+            let val = f.call(args)?;
+            Ok(val)
+        } else {
+            Err(ScriptError::BotFunctionError(
+                "Js Function is not defined".to_string(),
+            ))
         }
     }
 
