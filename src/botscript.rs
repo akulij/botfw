@@ -127,14 +127,28 @@ impl DeserializerJS {
         }
     }
 
-    pub fn deserialize_js<'a, T: Deserialize<'a>>(value: &'a JsValue) -> ScriptResult<T> {
+    pub fn deserialize_js<'a, T: Deserialize<'a> + Parcelable<BotFunction> + 'static>(
+        value: &'a JsValue,
+    ) -> ScriptResult<T> {
         let mut s = Self::new();
 
         s.inject_templates(value, "".to_string())?;
 
-        let res = value.js_into()?;
+        let mut res = value.js_into()?;
 
-        // val.map_functions(s.fn_map);
+        for (k, jsf) in s.fn_map {
+            let item: ParcelType<'_, BotFunction> =
+                match Parcelable::<BotFunction>::get_nested(&mut res, &k) {
+                    Ok(item) => item,
+                    Err(err) => {
+                        log::error!("Failed to inject original functions to structs, error: {err}");
+                        continue;
+                    }
+                };
+            if let ParcelType::Function(f) = item {
+                f.set_js_function(jsf);
+            }
+        }
 
         Ok(res)
     }
