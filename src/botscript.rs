@@ -522,16 +522,6 @@ mod tests {
     }
 
     #[test]
-    fn test_deserialization_main() {
-        let runner = Runner::init().unwrap();
-        let val = runner.run_script(include_str!("../mainbot.js")).unwrap();
-        let s: RunnerConfig = from_js(unsafe { runner.context.context_raw() }, &val).unwrap();
-        println!("deser: {:#?}", s);
-        let o = val.try_into_object().unwrap();
-        println!("o: {:?}", recursive_format(o));
-    }
-
-    #[test]
     fn test_func_deserialization_main() {
         let runner = Runner::init().unwrap();
         let _ = runner
