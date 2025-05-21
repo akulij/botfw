@@ -23,7 +23,7 @@ const dialog = {
             // name of the handler function. This field has a side effect:
             // when is set, no automatic sending of message, should be sent
             // manually in handler
-            handler: "enter_name",
+            handler: enter_name,
             state: "none"
         },
     },
