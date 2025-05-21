@@ -196,7 +196,7 @@ impl ResolveValue for KeyboardDefinition {
         match self {
             KeyboardDefinition::Rows(rows) => rows.into_iter().map(|r| r.resolve(runner)).collect(),
             KeyboardDefinition::Function(f) => {
-                Self::resolve(f.call_context(runner)?.js_into()?, runner)
+                <Self as ResolveValue>::resolve(f.call_context(runner)?.js_into()?, runner)
             }
         }
     }
@@ -217,7 +217,9 @@ impl ResolveValue for RowDefinition {
             RowDefinition::Buttons(buttons) => {
                 buttons.into_iter().map(|b| b.resolve(runner)).collect()
             }
-            RowDefinition::Function(f) => Self::resolve(f.call_context(runner)?.js_into()?, runner),
+            RowDefinition::Function(f) => {
+                <Self as ResolveValue>::resolve(f.call_context(runner)?.js_into()?, runner)
+            }
         }
     }
 }
@@ -238,7 +240,7 @@ impl ResolveValue for ButtonDefinition {
             ButtonDefinition::Button(button) => Ok(button),
             ButtonDefinition::ButtonLiteral(l) => Ok(ButtonRaw::from_literal(l)),
             ButtonDefinition::Function(f) => {
-                Self::resolve(f.call_context(runner)?.js_into()?, runner)
+                <Self as ResolveValue>::resolve(f.call_context(runner)?.js_into()?, runner)
             }
         }
     }
