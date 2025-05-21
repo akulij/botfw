@@ -105,6 +105,7 @@ pub struct BotController {
     pub bot: Bot,
     pub db: DB,
     pub rc: RunnerConfig,
+    pub runner: Runner,
 }
 
 impl BotController {
@@ -112,9 +113,15 @@ impl BotController {
         let bot = Bot::new(&config.bot_token);
         let db = DB::init(&config.db_url).await?;
 
-        let rc = Runner::init()?.init_config(include_str!("../mainbot.js"))?;
+        let runner = Runner::init()?;
+        let rc = runner.init_config(include_str!("../mainbot.js"))?;
 
-        Ok(Self { bot, db, rc })
+        Ok(Self {
+            bot,
+            db,
+            rc,
+            runner,
+        })
     }
 }
 
