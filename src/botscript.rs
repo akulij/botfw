@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use crate::utils::parcelable::{ParcelType, Parcelable, ParcelableError, ParcelableResult};
 use itertools::Itertools;
 use quickjs_rusty::serde::from_js;
-use quickjs_rusty::utils::create_null;
+use quickjs_rusty::utils::create_empty_object;
+use quickjs_rusty::utils::create_string;
 use quickjs_rusty::Context;
 use quickjs_rusty::ContextError;
 use quickjs_rusty::ExecutionError;
@@ -167,7 +168,24 @@ impl DeserializerJS {
                         Err(err) => return Err(ScriptError::ValueError(err)),
                     };
                     let res = match self.inject_templates(&p, path.clone() + &k)? {
-                        Some(_) => o.set_property(&k, JsValue::new(o.context(), create_null())),
+                        Some(_) => {
+                            let fo = JsValue::new(
+                                o.context(),
+                                create_empty_object(o.context()).expect("couldn't create object"),
+                            )
+                            .try_into_object()
+                            .expect("the object created was not an object :/");
+                            fo.set_property(
+                                "func",
+                                JsValue::new(
+                                    o.context(),
+                                    create_string(o.context(), "somefunc")
+                                        .expect("couldn't create string"),
+                                ),
+                            )
+                            .expect("wasn't able to set property on object :/");
+                            o.set_property(&k, fo.into_value())
+                        }
                         None => Ok(()),
                     };
                     match res {
