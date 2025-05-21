@@ -27,13 +27,61 @@ pub enum ScriptError {
 pub type ScriptResult<T> = Result<T, ScriptError>;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct BotFunction(String); // temporal workaround
+pub struct BotFunction {
+    func: FunctionMarker,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum FunctionMarker {
+    /// serde is not able to (de)serialize this, so ignore it and fill
+    /// in runtime with injection in DeserializeJS
+    #[serde(skip)]
+    Function(JsFunction),
+    StrTemplate(String),
+}
+
+impl FunctionMarker {
+    pub fn as_str_template(&self) -> Option<&String> {
+        if let Self::StrTemplate(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_function(&self) -> Option<&JsFunction> {
+        if let Self::Function(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn set_js_function(&mut self, f: JsFunction) {
+        *self = Self::Function(f)
+    }
+}
 
 impl BotFunction {
+    pub fn by_name(name: String) -> Self {
+        Self {
+            func: FunctionMarker::StrTemplate(name),
+        }
+    }
+
     pub fn call_context(&self, runner: &Runner) -> ScriptResult<JsValue> {
-        let func_name = &self.0;
+        let func_name: &str = self
+            .func
+            .as_str_template()
+            .map(|o| o.as_str())
+            .unwrap_or("");
 
         runner.run_script(&format!("{func_name}()"))
+    }
+
+    pub fn set_js_function(&mut self, f: JsFunction) {
+        self.func.set_js_function(f);
     }
 }
 
