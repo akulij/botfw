@@ -29,6 +29,8 @@ const dialog = {
     },
 }
 
+function enter_name() {}
+
 const fmt = (number) => number.toString().padStart(2, '0');
 
 const formatDate = (date) => {
