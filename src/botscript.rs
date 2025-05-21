@@ -384,7 +384,7 @@ mod tests {
             .run_script("function cancel_buttons() {return 'cancelation'}")
             .unwrap();
 
-        let f = BotFunction("cancel_buttons".to_string());
+        let f = BotFunction::by_name("cancel_buttons".to_string());
         let res = f.call_context(&runner).unwrap();
 
         println!("RES: {res:?}");
