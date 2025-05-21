@@ -408,9 +408,7 @@ impl Parcelable<BotFunction> for BotDialog {
     fn get_field(&mut self, name: &str) -> Result<ParcelType<BotFunction>, ParcelableError> {
         match name {
             "commands" => Ok(ParcelType::Parcelable(&mut self.commands)),
-            "stateful_msg_handlersommands" => {
-                Ok(ParcelType::Parcelable(&mut self.stateful_msg_handlers))
-            }
+            "stateful_msg_handlers" => Ok(ParcelType::Parcelable(&mut self.stateful_msg_handlers)),
             field => Err(ParcelableError::FieldError(format!(
                 "tried to get field {field}, but this field does not exists or private"
             ))),
