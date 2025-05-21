@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::utils::parcelable::{ParcelType, Parcelable, ParcelableError, ParcelableResult};
 use itertools::Itertools;
 use quickjs_rusty::serde::from_js;
 use quickjs_rusty::utils::create_null;
@@ -60,6 +61,22 @@ impl FunctionMarker {
 
     pub fn set_js_function(&mut self, f: JsFunction) {
         *self = Self::Function(f)
+    }
+}
+
+impl Parcelable<Self> for BotFunction {
+    fn get_field(
+        &mut self,
+        _name: &str,
+    ) -> crate::utils::parcelable::ParcelableResult<ParcelType<Self>> {
+        todo!()
+    }
+
+    fn resolve(&mut self) -> ParcelableResult<ParcelType<Self>>
+    where
+        Self: Sized + 'static,
+    {
+        Ok(ParcelType::Function(self))
     }
 }
 
@@ -189,6 +206,21 @@ pub enum KeyboardDefinition {
     Function(BotFunction),
 }
 
+impl Parcelable<BotFunction> for KeyboardDefinition {
+    fn get_field(&mut self, _name: &str) -> ParcelableResult<ParcelType<BotFunction>> {
+        todo!()
+    }
+    fn resolve(&mut self) -> ParcelableResult<ParcelType<BotFunction>>
+    where
+        Self: Sized + 'static,
+    {
+        match self {
+            KeyboardDefinition::Rows(rows) => Ok(rows.resolve()?),
+            KeyboardDefinition::Function(f) => Ok(f.resolve()?),
+        }
+    }
+}
+
 impl ResolveValue for KeyboardDefinition {
     type Value = Vec<<RowDefinition as ResolveValue>::Value>;
 
@@ -207,6 +239,21 @@ impl ResolveValue for KeyboardDefinition {
 pub enum RowDefinition {
     Buttons(Vec<ButtonDefinition>),
     Function(BotFunction),
+}
+
+impl Parcelable<BotFunction> for RowDefinition {
+    fn get_field(&mut self, _name: &str) -> ParcelableResult<ParcelType<BotFunction>> {
+        todo!()
+    }
+    fn resolve(&mut self) -> ParcelableResult<ParcelType<BotFunction>>
+    where
+        Self: Sized + 'static,
+    {
+        match self {
+            Self::Buttons(buttons) => Ok(buttons.resolve()?),
+            Self::Function(f) => Ok(f.resolve()?),
+        }
+    }
 }
 
 impl ResolveValue for RowDefinition {
@@ -246,10 +293,32 @@ impl ResolveValue for ButtonDefinition {
     }
 }
 
+impl Parcelable<BotFunction> for ButtonDefinition {
+    fn get_field(&mut self, _name: &str) -> ParcelableResult<ParcelType<BotFunction>> {
+        todo!()
+    }
+    fn resolve(&mut self) -> ParcelableResult<ParcelType<BotFunction>>
+    where
+        Self: Sized + 'static,
+    {
+        match self {
+            Self::Button(braw) => Ok(braw.resolve()?),
+            Self::ButtonLiteral(s) => Ok(s.resolve()?),
+            Self::Function(f) => Ok(f.resolve()?),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ButtonRaw {
     name: ButtonName,
     callback_name: String,
+}
+
+impl<F> Parcelable<F> for ButtonRaw {
+    fn get_field(&mut self, _name: &str) -> ParcelableResult<ParcelType<F>> {
+        todo!()
+    }
 }
 
 impl ButtonRaw {
@@ -284,16 +353,54 @@ pub struct BotMessage {
     handler: Option<BotFunction>,
 }
 
+impl Parcelable<BotFunction> for BotMessage {
+    fn get_field(&mut self, name: &str) -> ParcelableResult<ParcelType<BotFunction>> {
+        match name {
+            "buttons" => Ok(self.buttons.resolve()?),
+            "state" => Ok(self.state.resolve()?),
+            "handler" => Ok(self.handler.resolve()?),
+            field => Err(ParcelableError::FieldError(format!(
+                "tried to get field {field}, but this field does not exists or private"
+            ))),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct BotDialog {
     pub commands: HashMap<String, BotMessage>,
     stateful_msg_handlers: HashMap<String, BotMessage>,
 }
 
+impl Parcelable<BotFunction> for BotDialog {
+    fn get_field(&mut self, name: &str) -> Result<ParcelType<BotFunction>, ParcelableError> {
+        match name {
+            "commands" => Ok(ParcelType::Parcelable(&mut self.commands)),
+            "stateful_msg_handlersommands" => {
+                Ok(ParcelType::Parcelable(&mut self.stateful_msg_handlers))
+            }
+            field => Err(ParcelableError::FieldError(format!(
+                "tried to get field {field}, but this field does not exists or private"
+            ))),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RunnerConfig {
     config: BotConfig,
     pub dialog: BotDialog,
+}
+
+impl Parcelable<BotFunction> for RunnerConfig {
+    fn get_field(&mut self, name: &str) -> Result<ParcelType<BotFunction>, ParcelableError> {
+        match name {
+            "dialog" => Ok(ParcelType::Parcelable(&mut self.dialog)),
+            field => Err(ParcelableError::FieldError(format!(
+                "tried to get field {field}, but this field does not exists or private"
+            ))),
+        }
+    }
 }
 
 pub struct Runner {
