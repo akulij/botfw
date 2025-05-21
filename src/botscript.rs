@@ -89,13 +89,13 @@ impl BotFunction {
     }
 
     pub fn call_context(&self, runner: &Runner) -> ScriptResult<JsValue> {
-        let func_name: &str = self
-            .func
-            .as_str_template()
-            .map(|o| o.as_str())
-            .unwrap_or("");
-
-        runner.run_script(&format!("{func_name}()"))
+        match &self.func {
+            FunctionMarker::Function(f) => {
+                let val = f.call(Default::default())?;
+                Ok(val)
+            }
+            FunctionMarker::StrTemplate(func_name) => runner.run_script(&format!("{func_name}()")),
+        }
     }
 
     pub fn set_js_function(&mut self, f: JsFunction) {
