@@ -479,7 +479,7 @@ impl Runner {
         let val = self.run_script(content)?;
 
         // let rc: RunnerConfig = from_js(unsafe { self.context.context_raw() }, &val)?;
-        let rc: RunnerConfig = val.js_into()?;
+        let rc: RunnerConfig = DeserializerJS::deserialize_js(&val)?;
 
         Ok(rc)
     }
