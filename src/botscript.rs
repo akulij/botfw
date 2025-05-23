@@ -388,6 +388,24 @@ pub enum ButtonName {
     Literal { literal: String },
 }
 
+impl ButtonName {
+    pub async fn resolve_name(self, db: &mut DB) -> ScriptResult<String> {
+        match self {
+            ButtonName::Value { name } => Ok(name),
+            ButtonName::Literal { literal } => {
+                let value = db.get_literal_value(&literal).await?;
+
+                Ok(match value {
+                    Some(value) => Ok(value),
+                    None => Err(ResolveError::IncorrectLiteral(format!(
+                        "not found literal `{literal}` in DB"
+                    ))),
+                }?)
+            }
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Button {
     name: String,
