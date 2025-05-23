@@ -28,6 +28,8 @@ pub enum ScriptError {
     ValueError(#[from] ValueError),
     #[error("error bot function execution: {0:?}")]
     BotFunctionError(String),
+    #[error("error from DB: {0:?}")]
+    DBError(#[from] DbError),
 }
 
 pub type ScriptResult<T> = Result<T, ScriptError>;
