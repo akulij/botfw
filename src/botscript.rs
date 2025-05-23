@@ -438,6 +438,19 @@ pub enum ButtonLayout {
     },
 }
 
+impl ButtonLayout {
+    pub async fn resolve_raw(braw: ButtonRaw, db: &mut DB) -> ScriptResult<Self> {
+        let name = braw.name().clone().resolve_name(db).await?;
+        let literal = braw.literal();
+        let callback = braw.callback_name().to_string();
+        Ok(Self::Callback {
+            name,
+            literal,
+            callback,
+        })
+    }
+}
+
 impl Parcelable<BotFunction> for BotMessage {
     fn get_field(&mut self, name: &str) -> ParcelableResult<ParcelType<BotFunction>> {
         match name {
