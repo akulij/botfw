@@ -574,6 +574,15 @@ pub struct RunnerConfig {
     pub dialog: BotDialog,
 }
 
+impl RunnerConfig {
+    /// command without starting `/`
+    pub fn get_command_message(&self, command: &str) -> Option<BotMessage> {
+        let bm = self.dialog.commands.get(command).cloned();
+
+        bm.map(|bm| bm.fill_literal(command.to_string()))
+    }
+}
+
 impl Parcelable<BotFunction> for RunnerConfig {
     fn get_field(&mut self, name: &str) -> Result<ParcelType<BotFunction>, ParcelableError> {
         match name {
