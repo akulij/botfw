@@ -455,6 +455,10 @@ impl BotMessage {
             None => Ok(None),
         }
     }
+
+    pub fn literal(&self) -> Option<&String> {
+        self.literal.as_ref()
+    }
 }
 
 pub enum ButtonLayout {
