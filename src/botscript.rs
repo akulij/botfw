@@ -257,7 +257,8 @@ pub struct BotConfig {
 pub trait ResolveValue {
     type Value;
 
-    fn resolve(self, runner: &Runner) -> ScriptResult<Self::Value>;
+    fn resolve(self) -> ScriptResult<Self::Value>;
+    fn resolve_with(self, runner: &Runner) -> ScriptResult<Self::Value>;
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -285,11 +286,22 @@ impl Parcelable<BotFunction> for KeyboardDefinition {
 impl ResolveValue for KeyboardDefinition {
     type Value = Vec<<RowDefinition as ResolveValue>::Value>;
 
-    fn resolve(self, runner: &Runner) -> ScriptResult<Self::Value> {
+    fn resolve(self) -> ScriptResult<Self::Value> {
         match self {
-            KeyboardDefinition::Rows(rows) => rows.into_iter().map(|r| r.resolve(runner)).collect(),
+            KeyboardDefinition::Rows(rows) => rows.into_iter().map(|r| r.resolve()).collect(),
             KeyboardDefinition::Function(f) => {
-                <Self as ResolveValue>::resolve(f.call_context(runner)?.js_into()?, runner)
+                <Self as ResolveValue>::resolve(f.call()?.js_into()?)
+            }
+        }
+    }
+
+    fn resolve_with(self, runner: &Runner) -> ScriptResult<Self::Value> {
+        match self {
+            KeyboardDefinition::Rows(rows) => {
+                rows.into_iter().map(|r| r.resolve_with(runner)).collect()
+            }
+            KeyboardDefinition::Function(f) => {
+                <Self as ResolveValue>::resolve_with(f.call_context(runner)?.js_into()?, runner)
             }
         }
     }
@@ -320,13 +332,21 @@ impl Parcelable<BotFunction> for RowDefinition {
 impl ResolveValue for RowDefinition {
     type Value = Vec<<ButtonDefinition as ResolveValue>::Value>;
 
-    fn resolve(self, runner: &Runner) -> ScriptResult<Self::Value> {
+    fn resolve(self) -> ScriptResult<Self::Value> {
         match self {
-            RowDefinition::Buttons(buttons) => {
-                buttons.into_iter().map(|b| b.resolve(runner)).collect()
-            }
+            RowDefinition::Buttons(buttons) => buttons.into_iter().map(|b| b.resolve()).collect(),
+            RowDefinition::Function(f) => <Self as ResolveValue>::resolve(f.call()?.js_into()?),
+        }
+    }
+
+    fn resolve_with(self, runner: &Runner) -> ScriptResult<Self::Value> {
+        match self {
+            RowDefinition::Buttons(buttons) => buttons
+                .into_iter()
+                .map(|b| b.resolve_with(runner))
+                .collect(),
             RowDefinition::Function(f) => {
-                <Self as ResolveValue>::resolve(f.call_context(runner)?.js_into()?, runner)
+                <Self as ResolveValue>::resolve_with(f.call_context(runner)?.js_into()?, runner)
             }
         }
     }
@@ -343,12 +363,20 @@ pub enum ButtonDefinition {
 impl ResolveValue for ButtonDefinition {
     type Value = ButtonRaw;
 
-    fn resolve(self, runner: &Runner) -> ScriptResult<Self::Value> {
+    fn resolve(self) -> ScriptResult<Self::Value> {
+        match self {
+            ButtonDefinition::Button(button) => Ok(button),
+            ButtonDefinition::ButtonLiteral(l) => Ok(ButtonRaw::from_literal(l)),
+            ButtonDefinition::Function(f) => <Self as ResolveValue>::resolve(f.call()?.js_into()?),
+        }
+    }
+
+    fn resolve_with(self, runner: &Runner) -> ScriptResult<Self::Value> {
         match self {
             ButtonDefinition::Button(button) => Ok(button),
             ButtonDefinition::ButtonLiteral(l) => Ok(ButtonRaw::from_literal(l)),
             ButtonDefinition::Function(f) => {
-                <Self as ResolveValue>::resolve(f.call_context(runner)?.js_into()?, runner)
+                <Self as ResolveValue>::resolve_with(f.call_context(runner)?.js_into()?, runner)
             }
         }
     }
