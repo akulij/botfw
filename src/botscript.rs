@@ -30,6 +30,14 @@ pub enum ScriptError {
     BotFunctionError(String),
     #[error("error from DB: {0:?}")]
     DBError(#[from] DbError),
+    #[error("error resolving data: {0:?}")]
+    ResolveError(#[from] ResolveError),
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum ResolveError {
+    #[error("wrong literal: {0:?}")]
+    IncorrectLiteral(String),
 }
 
 pub type ScriptResult<T> = Result<T, ScriptError>;
