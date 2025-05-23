@@ -414,6 +414,7 @@ pub struct Button {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BotMessage {
     // buttons: Vec<Button>
+    literal: Option<String>,
     buttons: Option<KeyboardDefinition>,
     state: Option<String>,
 
