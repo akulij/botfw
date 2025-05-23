@@ -421,6 +421,15 @@ pub struct BotMessage {
     handler: Option<BotFunction>,
 }
 
+impl BotMessage {
+    pub fn fill_literal(&self, l: String) -> Self {
+        BotMessage {
+            literal: self.clone().literal.or(Some(l)),
+            ..self.clone()
+        }
+    }
+}
+
 impl Parcelable<BotFunction> for BotMessage {
     fn get_field(&mut self, name: &str) -> ParcelableResult<ParcelType<BotFunction>> {
         match name {
