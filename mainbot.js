@@ -49,7 +49,10 @@ function start_buttons() {
     const dateFormated = formatDate(now);
 
     // return 1
-    return dateFormated
+    return [
+        [{name: {name: dateFormated}, callback_name: "no"}],
+        [{name: {name: "Hello!"}, callback_name: "no"}],
+    ]
 }
 
 const config = {
