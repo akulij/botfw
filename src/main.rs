@@ -5,7 +5,7 @@ pub mod db;
 pub mod mongodb_storage;
 pub mod utils;
 
-use botscript::{BotMessage, Runner, RunnerConfig};
+use botscript::{BotMessage, Runner, RunnerConfig, ScriptError};
 use commands::BotCommand;
 use db::application::Application;
 use db::callback_info::CallbackInfo;
@@ -133,6 +133,7 @@ pub enum BotError {
     MsgTooOld(String),
     BotLogicError(String),
     AdminMisconfiguration(String),
+    ScriptError(#[from] ScriptError),
 }
 
 pub type BotResult<T> = Result<T, BotError>;
@@ -254,8 +255,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn botscript_command_handler(bot: Bot, bm: BotMessage) -> BotResult<()> {
+async fn botscript_command_handler(
+    bot: Bot,
+    mut db: DB,
+    bm: BotMessage,
+    msg: Message,
+) -> BotResult<()> {
     info!("Eval BM: {:?}", bm);
+    let buttons = bm
+        .resolve_buttons(&mut db)
+        .await?
+        .map(|buttons| InlineKeyboardMarkup {
+            inline_keyboard: buttons
+                .iter()
+                .map(|r| {
+                    r.iter()
+                        .map(|b| match b {
+                            botscript::ButtonLayout::Callback {
+                                name,
+                                literal: _,
+                                callback,
+                            } => InlineKeyboardButton::callback(name, callback),
+                        })
+                        .collect()
+                })
+                .collect(),
+        });
+    let literal = bm.literal().map_or("", |s| s.as_str());
+
+    answer_message_varianted(&bot, msg.chat.id.0, &mut db, literal, None, buttons).await?;
 
     Ok(())
 }
