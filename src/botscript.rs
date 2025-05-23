@@ -379,6 +379,21 @@ impl ButtonRaw {
             callback_name: literal,
         }
     }
+
+    pub fn name(&self) -> &ButtonName {
+        &self.name
+    }
+
+    pub fn callback_name(&self) -> &str {
+        &self.callback_name
+    }
+
+    pub fn literal(&self) -> Option<String> {
+        match self.name() {
+            ButtonName::Value { .. } => None,
+            ButtonName::Literal { literal } => Some(literal.to_string()),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
