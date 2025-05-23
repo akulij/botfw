@@ -430,6 +430,14 @@ impl BotMessage {
     }
 }
 
+pub enum ButtonLayout {
+    Callback {
+        name: String,
+        literal: Option<String>,
+        callback: String,
+    },
+}
+
 impl Parcelable<BotFunction> for BotMessage {
     fn get_field(&mut self, name: &str) -> ParcelableResult<ParcelType<BotFunction>> {
         match name {
