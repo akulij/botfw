@@ -430,6 +430,33 @@ impl BotMessage {
     }
 }
 
+impl BotMessage {
+    pub async fn resolve_buttons(
+        &self,
+        db: &mut DB,
+    ) -> ScriptResult<Option<Vec<Vec<ButtonLayout>>>> {
+        let raw_buttons = self.buttons.clone().map(|b| b.resolve()).transpose()?;
+        match raw_buttons {
+            Some(braws) => {
+                let kbd: Vec<Vec<_>> = join_all(braws.into_iter().map(|rows| async {
+                    join_all(rows.into_iter().map(|b| async {
+                        let mut db = db.clone();
+                        ButtonLayout::resolve_raw(b, &mut db).await
+                    }))
+                    .await
+                    .into_iter()
+                    .collect()
+                }))
+                .await
+                .into_iter()
+                .collect::<Result<_, _>>()?;
+                Ok(Some(kbd))
+            }
+            None => Ok(None),
+        }
+    }
+}
+
 pub enum ButtonLayout {
     Callback {
         name: String,
