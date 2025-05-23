@@ -12,7 +12,6 @@ use db::callback_info::CallbackInfo;
 use db::message_forward::MessageForward;
 use itertools::Itertools;
 use log::{error, info, warn};
-use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::RwLock;
 use std::time::Duration;
@@ -169,8 +168,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     //
-    let cmdmap: std::sync::Arc<RwLock<HashMap<_, _>>> =
-        std::sync::Arc::new(RwLock::new(bc.rc.dialog.commands));
+    let rc: std::sync::Arc<RwLock<RunnerConfig>> = std::sync::Arc::new(RwLock::new(bc.rc));
 
     let handler = dptree::entry()
         .inspect(|u: Update| {
@@ -180,11 +178,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Update::filter_message()
                 .filter_map(|m: Message| m.text().and_then(|t| BotCommand::from_str(t).ok()))
                 .filter_map(move |bc: BotCommand| {
-                    let rc = std::sync::Arc::clone(&cmdmap);
+                    let rc = std::sync::Arc::clone(&rc);
+                    let command = bc.command();
 
-                    let cmdmap = rc.read().expect("RwLock lock on commands map failed");
+                    let rc = rc.read().expect("RwLock lock on commands map failed");
 
-                    cmdmap.get(bc.command()).cloned()
+                    rc.get_command_message(command)
                 })
                 .endpoint(botscript_command_handler),
         )
