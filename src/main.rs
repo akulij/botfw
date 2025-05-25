@@ -2,6 +2,7 @@ pub mod admin;
 pub mod botscript;
 pub mod commands;
 pub mod db;
+pub mod message_answerer;
 pub mod mongodb_storage;
 pub mod utils;
 
@@ -12,6 +13,7 @@ use db::callback_info::CallbackInfo;
 use db::message_forward::MessageForward;
 use itertools::Itertools;
 use log::{error, info, warn};
+use message_answerer::MessageAnswerer;
 use std::str::FromStr;
 use std::sync::RwLock;
 use std::time::Duration;
@@ -283,7 +285,8 @@ async fn botscript_command_handler(
         });
     let literal = bm.literal().map_or("", |s| s.as_str());
 
-    answer_message_varianted(&bot, msg.chat.id.0, &mut db, literal, None, buttons).await?;
+    let ma = MessageAnswerer::new(&bot, &mut db, msg.chat.id.0);
+    ma.answer(literal, None, buttons).await?;
 
     Ok(())
 }
@@ -486,22 +489,18 @@ async fn callback_handler(bot: Bot, mut db: DB, q: CallbackQuery) -> BotResult<(
                 create_callback_button("go_home", Callback::GoHome, &mut db).await?
             ));
 
-            replace_message(
-                &bot,
-                &mut db,
-                q.chat_id().map(|i| i.0).unwrap_or(q.from.id.0 as i64),
-                q.message.map_or_else(
-                    || {
-                        Err(BotError::MsgTooOld(
-                            "Failed to get message id, probably message too old".to_string(),
-                        ))
-                    },
-                    |m| Ok(m.id().0),
-                )?,
-                "more_info_msg",
-                keyboard,
-            )
-            .await?
+            let chat_id = q.chat_id().map(|i| i.0).unwrap_or(q.from.id.0 as i64);
+            let message_id = q.message.map_or_else(
+                || {
+                    Err(BotError::MsgTooOld(
+                        "Failed to get message id, probably message too old".to_string(),
+                    ))
+                },
+                |m| Ok(m.id().0),
+            )?;
+            MessageAnswerer::new(&bot, &mut db, chat_id)
+                .replace_message(message_id, "more_info_msg", keyboard)
+                .await?
         }
         Callback::ProjectPage { id } => {
             let nextproject = match db
@@ -538,68 +537,50 @@ async fn callback_handler(bot: Bot, mut db: DB, q: CallbackQuery) -> BotResult<(
                 [create_callback_button("go_home", Callback::GoHome, &mut db).await?]
             );
 
-            replace_message(
-                &bot,
-                &mut db,
-                q.chat_id().map(|i| i.0).unwrap_or(q.from.id.0 as i64),
-                q.message.map_or_else(
-                    || {
-                        Err(BotError::MsgTooOld(
-                            "Failed to get message id, probably message too old".to_string(),
-                        ))
-                    },
-                    |m| Ok(m.id().0),
-                )?,
-                &format!("project_{}_msg", id),
-                Some(keyboard),
-            )
-            .await?
+            let chat_id = q.chat_id().map(|i| i.0).unwrap_or(q.from.id.0 as i64);
+            let message_id = q.message.map_or_else(
+                || {
+                    Err(BotError::MsgTooOld(
+                        "Failed to get message id, probably message too old".to_string(),
+                    ))
+                },
+                |m| Ok(m.id().0),
+            )?;
+            MessageAnswerer::new(&bot, &mut db, chat_id)
+                .replace_message(message_id, &format!("project_{}_msg", id), Some(keyboard))
+                .await?
         }
         Callback::GoHome => {
             let keyboard = make_start_buttons(&mut db).await?;
 
-            replace_message(
-                &bot,
-                &mut db,
-                q.chat_id().map(|i| i.0).unwrap_or(q.from.id.0 as i64),
-                q.message.map_or_else(
-                    || {
-                        Err(BotError::MsgTooOld(
-                            "Failed to get message id, probably message too old".to_string(),
-                        ))
-                    },
-                    |m| Ok(m.id().0),
-                )?,
-                "start",
-                Some(keyboard),
-            )
-            .await?
+            let chat_id = q.chat_id().map(|i| i.0).unwrap_or(q.from.id.0 as i64);
+            let message_id = q.message.map_or_else(
+                || {
+                    Err(BotError::MsgTooOld(
+                        "Failed to get message id, probably message too old".to_string(),
+                    ))
+                },
+                |m| Ok(m.id().0),
+            )?;
+            MessageAnswerer::new(&bot, &mut db, chat_id)
+                .replace_message(message_id, "start", Some(keyboard))
+                .await?
         }
         Callback::LeaveApplication => {
             let application = Application::new(q.from.clone()).store(&mut db).await?;
             let msg = send_application_to_chat(&bot, &mut db, &application).await?;
 
-            let (chat_id, msg_id) = answer_message(
-                &bot,
-                q.from.id.0 as i64,
-                &mut db,
-                "left_application_msg",
-                None as Option<InlineKeyboardMarkup>,
-            )
-            .await?;
+            let (chat_id, msg_id) = MessageAnswerer::new(&bot, &mut db, q.from.id.0 as i64)
+                .answer("left_application_msg", None, None)
+                .await?;
             MessageForward::new(msg.chat.id.0, msg.id.0, chat_id, msg_id, false)
                 .store(&mut db)
                 .await?;
         }
         Callback::AskQuestion => {
-            answer_message(
-                &bot,
-                q.from.id.0 as i64,
-                &mut db,
-                "ask_question_msg",
-                None as Option<InlineKeyboardMarkup>,
-            )
-            .await?;
+            MessageAnswerer::new(&bot, &mut db, q.from.id.0 as i64)
+                .answer("ask_question_msg", None, None)
+                .await?;
         }
     };
 
@@ -941,15 +922,9 @@ async fn user_command_handler(
                 variant => Some(variant),
             };
             let mut db2 = db.clone();
-            answer_message_varianted(
-                &bot,
-                msg.chat.id.0,
-                &mut db,
-                "start",
-                variant,
-                Some(make_start_buttons(&mut db2).await?),
-            )
-            .await?;
+            MessageAnswerer::new(&bot, &mut db, msg.chat.id.0)
+                .answer("start", variant, Some(make_start_buttons(&mut db2).await?))
+                .await?;
             Ok(())
         }
         UserCommands::Help => {
@@ -958,272 +933,6 @@ async fn user_command_handler(
             Ok(())
         }
     }
-}
-
-async fn answer_message<RM: Into<ReplyMarkup>>(
-    bot: &Bot,
-    chat_id: i64,
-    db: &mut DB,
-    literal: &str,
-    keyboard: Option<RM>,
-) -> BotResult<(i64, i32)> {
-    answer_message_varianted(bot, chat_id, db, literal, None, keyboard).await
-}
-
-async fn answer_message_varianted<RM: Into<ReplyMarkup>>(
-    bot: &Bot,
-    chat_id: i64,
-    db: &mut DB,
-    literal: &str,
-    variant: Option<&str>,
-    keyboard: Option<RM>,
-) -> BotResult<(i64, i32)> {
-    answer_message_varianted_silence_flag(bot, chat_id, db, literal, variant, false, keyboard).await
-}
-
-async fn answer_message_varianted_silence_flag<RM: Into<ReplyMarkup>>(
-    bot: &Bot,
-    chat_id: i64,
-    db: &mut DB,
-    literal: &str,
-    variant: Option<&str>,
-    silence_non_variant: bool,
-    keyboard: Option<RM>,
-) -> BotResult<(i64, i32)> {
-    let variant_text = match variant {
-        Some(variant) => {
-            let value = db.get_literal_alternative_value(literal, variant).await?;
-            if value.is_none() && !silence_non_variant {
-                notify_admin(&format!("variant {variant} for literal {literal} is not found! falling back to just literal")).await;
-            }
-            value
-        }
-        None => None,
-    };
-    let text = match variant_text {
-        Some(text) => text,
-        None => db
-            .get_literal_value(literal)
-            .await?
-            .unwrap_or("Please, set content of this message".into()),
-    };
-
-    let media = db.get_media(literal).await?;
-    let (chat_id, msg_id) = match media.len() {
-        // just a text
-        0 => {
-            let msg = bot.send_message(ChatId(chat_id), text);
-            let msg = match keyboard {
-                Some(kbd) => msg.reply_markup(kbd),
-                None => msg,
-            };
-            let msg = msg.parse_mode(teloxide::types::ParseMode::Html);
-            info!("ENTS: {:?}", msg.entities);
-            let msg = msg.await?;
-
-            (msg.chat.id.0, msg.id.0)
-        }
-        // single media
-        1 => {
-            let media = &media[0]; // safe, cause we just checked len
-            match media.media_type.as_str() {
-                "photo" => {
-                    let msg = bot.send_photo(
-                        ChatId(chat_id),
-                        InputFile::file_id(media.file_id.to_string()),
-                    );
-                    let msg = match text.as_str() {
-                        "" => msg,
-                        text => msg.caption(text),
-                    };
-                    let msg = match keyboard {
-                        Some(kbd) => msg.reply_markup(kbd),
-                        None => msg,
-                    };
-
-                    let msg = msg.parse_mode(teloxide::types::ParseMode::Html);
-                    let msg = msg.await?;
-
-                    (msg.chat.id.0, msg.id.0)
-                }
-                "video" => {
-                    let msg = bot.send_video(
-                        ChatId(chat_id),
-                        InputFile::file_id(media.file_id.to_string()),
-                    );
-                    let msg = match text.as_str() {
-                        "" => msg,
-                        text => msg.caption(text),
-                    };
-                    let msg = match keyboard {
-                        Some(kbd) => msg.reply_markup(kbd),
-                        None => msg,
-                    };
-
-                    let msg = msg.parse_mode(teloxide::types::ParseMode::Html);
-                    let msg = msg.await?;
-
-                    (msg.chat.id.0, msg.id.0)
-                }
-                _ => {
-                    todo!()
-                }
-            }
-        }
-        // >= 2, should use media group
-        _ => {
-            let media: Vec<InputMedia> = media
-                .into_iter()
-                .enumerate()
-                .map(|(i, m)| {
-                    let ifile = InputFile::file_id(m.file_id);
-                    let caption = if i == 0 {
-                        match text.as_str() {
-                            "" => None,
-                            text => Some(text.to_string()),
-                        }
-                    } else {
-                        None
-                    };
-                    match m.media_type.as_str() {
-                        "photo" => InputMedia::Photo(teloxide::types::InputMediaPhoto {
-                            media: ifile,
-                            caption,
-                            parse_mode: Some(ParseMode::Html),
-                            caption_entities: None,
-                            has_spoiler: false,
-                            show_caption_above_media: false,
-                        }),
-                        "video" => InputMedia::Video(teloxide::types::InputMediaVideo {
-                            media: ifile,
-                            thumbnail: None,
-                            caption,
-                            parse_mode: Some(ParseMode::Html),
-                            caption_entities: None,
-                            show_caption_above_media: false,
-                            width: None,
-                            height: None,
-                            duration: None,
-                            supports_streaming: None,
-                            has_spoiler: false,
-                        }),
-                        _ => {
-                            todo!()
-                        }
-                    }
-                })
-                .collect();
-            let msg = bot.send_media_group(ChatId(chat_id), media);
-
-            let msg = msg.await?;
-
-            (msg[0].chat.id.0, msg[0].id.0)
-        }
-    };
-    match variant {
-        Some(variant) => {
-            db.set_message_literal_variant(chat_id, msg_id, literal, variant)
-                .await?
-        }
-        None => db.set_message_literal(chat_id, msg_id, literal).await?,
-    };
-    Ok((chat_id, msg_id))
-}
-
-async fn replace_message(
-    bot: &Bot,
-    db: &mut DB,
-    chat_id: i64,
-    message_id: i32,
-    literal: &str,
-    keyboard: Option<InlineKeyboardMarkup>,
-) -> BotResult<()> {
-    let variant = db
-        .get_message(chat_id, message_id)
-        .await?
-        .and_then(|m| m.variant);
-    let variant_text = match variant {
-        Some(ref variant) => db.get_literal_alternative_value(literal, variant).await?,
-        None => None,
-    };
-    let text = match variant_text {
-        Some(ref text) => text.to_string(),
-        None => db
-            .get_literal_value(literal)
-            .await?
-            .unwrap_or("Please, set content of this message".into()),
-    };
-    let media = db.get_media(literal).await?;
-    let (chat_id, msg_id) = match media.len() {
-        // just a text
-        0 => {
-            let msg = bot.edit_message_text(ChatId(chat_id), MessageId(message_id), text);
-            let msg = match keyboard {
-                Some(ref kbd) => msg.reply_markup(kbd.clone()),
-                None => msg,
-            };
-            let msg = msg.parse_mode(teloxide::types::ParseMode::Html);
-            info!("ENTS: {:?}", msg.entities);
-            let msg = match msg.await {
-                Ok(msg) => msg,
-                Err(teloxide::RequestError::Api(teloxide::ApiError::Unknown(errtext)))
-                    if errtext.as_str()
-                        == "Bad Request: there is no text in the message to edit" =>
-                {
-                    // fallback to sending message
-                    warn!("Fallback into sending message instead of editing because it contains media");
-                    answer_message_varianted_silence_flag(
-                        bot,
-                        chat_id,
-                        db,
-                        literal,
-                        variant.as_deref(),
-                        true,
-                        keyboard,
-                    )
-                    .await?;
-                    return Ok(());
-                }
-                Err(err) => return Err(err.into()),
-            };
-
-            (msg.chat.id.0, msg.id.0)
-        }
-        // single media
-        1 => {
-            let media = &media[0]; // safe, cause we just checked len
-            let input_file = InputFile::file_id(media.file_id.to_string());
-            let media = match media.media_type.as_str() {
-                "photo" => InputMedia::Photo(teloxide::types::InputMediaPhoto::new(input_file)),
-                "video" => InputMedia::Video(teloxide::types::InputMediaVideo::new(input_file)),
-                _ => todo!(),
-            };
-            bot.edit_message_media(ChatId(chat_id), MessageId(message_id), media)
-                .await?;
-
-            let msg = bot.edit_message_caption(ChatId(chat_id), MessageId(message_id));
-            let msg = match text.as_str() {
-                "" => msg,
-                text => msg.caption(text),
-            };
-            let msg = match keyboard {
-                Some(kbd) => msg.reply_markup(kbd),
-                None => msg,
-            };
-
-            let msg = msg.parse_mode(teloxide::types::ParseMode::Html);
-            let msg = msg.await?;
-
-            (msg.chat.id.0, msg.id.0)
-        }
-        // >= 2, should use media group
-        _ => {
-            unreachable!();
-        }
-    };
-    db.set_message_literal(chat_id, msg_id, literal).await?;
-
-    Ok(())
 }
 
 async fn make_start_buttons(db: &mut DB) -> BotResult<InlineKeyboardMarkup> {
