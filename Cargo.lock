@@ -921,6 +921,7 @@ dependencies = [
  "pretty_env_logger",
  "quickjs-rusty",
  "serde",
+ "serde_json",
  "teloxide",
  "thiserror 2.0.12",
  "tokio",
