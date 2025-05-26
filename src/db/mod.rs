@@ -142,14 +142,15 @@ pub struct Media {
 #[derive(Clone)]
 pub struct DB {
     client: Client,
+    name: String,
 }
 
 impl DB {
-    pub async fn new<S: Into<String>>(db_url: S) -> DbResult<Self> {
+    pub async fn new<S: Into<String>>(db_url: S, name: String) -> DbResult<Self> {
         let options = ClientOptions::parse(db_url.into()).await?;
         let client = Client::with_options(options)?;
 
-        Ok(DB { client })
+        Ok(DB { client, name })
     }
 
     pub async fn migrate(&mut self) -> DbResult<()> {
@@ -186,8 +187,8 @@ impl DB {
         Ok(())
     }
 
-    pub async fn init<S: Into<String>>(db_url: S) -> DbResult<Self> {
-        let mut db = Self::new(db_url).await?;
+    pub async fn init<S: Into<String>>(db_url: S, name: String) -> DbResult<Self> {
+        let mut db = Self::new(db_url, name).await?;
         db.migrate().await?;
 
         Ok(db)
@@ -205,7 +206,7 @@ pub trait GetCollection {
 #[async_trait]
 impl CallDB for DB {
     async fn get_database(&mut self) -> Database {
-        self.client.database("gongbot")
+        self.client.database(&self.name)
     }
 }
 
