@@ -1,11 +1,13 @@
 pub mod db;
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex, PoisonError};
 
 use crate::db::raw_calls::RawCallError;
 use crate::db::{CallDB, DbError, DB};
 use crate::utils::parcelable::{ParcelType, Parcelable, ParcelableError, ParcelableResult};
 use db::attach_db_obj;
 use futures::future::join_all;
+use futures::lock::MutexGuard;
 use itertools::Itertools;
 use quickjs_rusty::serde::from_js;
 use quickjs_rusty::utils::create_empty_object;
@@ -37,6 +39,8 @@ pub enum ScriptError {
     ResolveError(#[from] ResolveError),
     #[error("error while calling db from runtime: {0:?}")]
     RawCallError(#[from] RawCallError),
+    #[error("error while locking mutex: {0:?}")]
+    MutexError(String),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -599,8 +603,9 @@ impl Parcelable<BotFunction> for RunnerConfig {
     }
 }
 
+#[derive(Clone)]
 pub struct Runner {
-    context: Context,
+    context: Arc<Mutex<Context>>,
 }
 
 impl Runner {
@@ -613,7 +618,9 @@ impl Runner {
             None::<bool>
         })?;
 
-        Ok(Runner { context })
+        Ok(Runner {
+            context: Arc::new(Mutex::new(context)),
+        })
     }
 
     pub fn init_with_db(db: &mut DB) -> ScriptResult<Self> {
@@ -627,11 +634,20 @@ impl Runner {
             None::<bool>
         })?;
 
-        Ok(Runner { context })
+        Ok(Runner {
+            context: Arc::new(Mutex::new(context)),
+        })
     }
 
     pub fn run_script(&self, content: &str) -> ScriptResult<JsValue> {
-        let ctx = &self.context;
+        let ctx = match self.context.lock() {
+            Ok(ctx) => ctx,
+            Err(err) => {
+                return Err(ScriptError::MutexError(format!(
+                    "can't lock js Context mutex, err: {err}"
+                )))
+            }
+        };
 
         let val = ctx.eval(content, false)?;
 
