@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::db::raw_calls::RawCallError;
 use crate::db::{CallDB, DbError, DB};
 use crate::utils::parcelable::{ParcelType, Parcelable, ParcelableError, ParcelableResult};
 use futures::future::join_all;
@@ -32,6 +33,8 @@ pub enum ScriptError {
     DBError(#[from] DbError),
     #[error("error resolving data: {0:?}")]
     ResolveError(#[from] ResolveError),
+    #[error("error while calling db from runtime: {0:?}")]
+    RawCallError(#[from] RawCallError),
 }
 
 #[derive(thiserror::Error, Debug)]
