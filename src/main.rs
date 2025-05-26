@@ -1,4 +1,5 @@
 pub mod admin;
+pub mod bot_handler;
 pub mod bot_manager;
 pub mod botscript;
 pub mod commands;
