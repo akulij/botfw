@@ -1,3 +1,5 @@
+use std::fmt::format;
+
 use itertools::Itertools;
 use teloxide::{
     prelude::*,
@@ -5,6 +7,7 @@ use teloxide::{
 };
 
 use crate::{
+    bot_manager::deploy_bot,
     db::{CallDB, DB},
     BotResult,
 };
@@ -41,6 +44,8 @@ pub enum AdminCommands {
     Users,
     /// Cancel current action and sets user state to default
     Cancel,
+    /// Create new instance of telegram bot
+    Deploy { token: String },
 }
 
 pub async fn admin_command_handler(
@@ -154,6 +159,15 @@ pub async fn admin_command_handler(
             dialogue.exit().await?;
             bot.send_message(msg.chat.id, "canceled current action")
                 .await?;
+            Ok(())
+        }
+        AdminCommands::Deploy { token } => {
+            let bot_info = deploy_bot(&mut db, &token).await?;
+            bot.send_message(
+                msg.chat.id,
+                format!("Deployed bot with name: {}", bot_info.name),
+            )
+            .await?;
             Ok(())
         }
     }
