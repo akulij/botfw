@@ -193,6 +193,10 @@ impl DB {
 
         Ok(db)
     }
+
+    pub fn with_name(self, name: String) -> Self {
+        Self { name, ..self }
+    }
 }
 
 pub trait DbCollection {
