@@ -254,7 +254,7 @@ fn print(s: String) {
     println!("{s}");
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BotConfig {
     version: f64,
 }
@@ -555,7 +555,7 @@ impl Parcelable<BotFunction> for BotMessage {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BotDialog {
     pub commands: HashMap<String, BotMessage>,
     stateful_msg_handlers: HashMap<String, BotMessage>,
@@ -573,7 +573,7 @@ impl Parcelable<BotFunction> for BotDialog {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RunnerConfig {
     config: BotConfig,
     pub dialog: BotDialog,
