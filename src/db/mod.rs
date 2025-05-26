@@ -1,4 +1,5 @@
 pub mod application;
+pub mod bots;
 pub mod callback_info;
 pub mod message_forward;
 
