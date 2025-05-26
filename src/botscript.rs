@@ -1,3 +1,4 @@
+pub mod db;
 use std::collections::HashMap;
 
 use crate::db::raw_calls::RawCallError;
