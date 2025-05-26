@@ -2,6 +2,7 @@ pub mod application;
 pub mod bots;
 pub mod callback_info;
 pub mod message_forward;
+pub mod raw_calls;
 
 use std::time::Duration;
 
