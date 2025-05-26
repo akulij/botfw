@@ -208,6 +208,14 @@ impl CallDB for DB {
     }
 }
 
+impl<T: CallDB> GetCollection for T {
+    async fn get_collection<C: DbCollection + Send + Sync>(&mut self) -> Collection<C> {
+        self.get_database()
+            .await
+            .collection(<C as DbCollection>::COLLECTION)
+    }
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum DbError {
     #[error("error while processing mongodb query: {0}")]
