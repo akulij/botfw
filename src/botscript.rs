@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use crate::db::raw_calls::RawCallError;
 use crate::db::{CallDB, DbError, DB};
 use crate::utils::parcelable::{ParcelType, Parcelable, ParcelableError, ParcelableResult};
+use db::attach_db_obj;
 use futures::future::join_all;
 use itertools::Itertools;
 use quickjs_rusty::serde::from_js;
@@ -605,6 +606,20 @@ pub struct Runner {
 impl Runner {
     pub fn init() -> ScriptResult<Self> {
         let context = Context::new(None)?;
+
+        context.add_callback("print", |a: String| {
+            print(a);
+
+            None::<bool>
+        })?;
+
+        Ok(Runner { context })
+    }
+
+    pub fn init_with_db(db: &mut DB) -> ScriptResult<Self> {
+        let context = Context::new(None)?;
+        let mut global = context.global()?;
+        attach_db_obj(&context, &mut global, db)?;
 
         context.add_callback("print", |a: String| {
             print(a);
