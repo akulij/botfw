@@ -12,7 +12,7 @@ use futures::stream::TryStreamExt;
 
 use mongodb::options::IndexOptions;
 use mongodb::{bson::doc, options::ClientOptions, Client};
-use mongodb::{Database, IndexModel};
+use mongodb::{Collection, Database, IndexModel};
 use serde::{Deserialize, Serialize};
 
 #[derive(EnumStringify)]
@@ -191,6 +191,14 @@ impl DB {
 
         Ok(db)
     }
+}
+
+pub trait DbCollection {
+    const COLLECTION: &str;
+}
+
+pub trait GetCollection {
+    async fn get_collection<C: DbCollection + Send + Sync>(&mut self) -> Collection<C>;
 }
 
 #[async_trait]
