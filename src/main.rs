@@ -8,7 +8,7 @@ pub mod message_answerer;
 pub mod mongodb_storage;
 pub mod utils;
 
-use botscript::{BotMessage, Runner, RunnerConfig, ScriptError};
+use botscript::{BotMessage, Runner, RunnerConfig, ScriptError, ScriptResult};
 use commands::BotCommand;
 use db::application::Application;
 use db::callback_info::CallbackInfo;
@@ -117,12 +117,28 @@ pub struct BotController {
 const MAIN_BOT_SCRIPT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/mainbot.js"));
 
 impl BotController {
-    pub async fn new(config: &Config) -> Result<Self, Box<dyn std::error::Error>> {
-        let bot = Bot::new(&config.bot_token);
-        let db = DB::init(&config.db_url).await?;
+    pub async fn new(config: &Config) -> ScriptResult<Self> {
+        Self::create(
+            &config.bot_token,
+            &config.db_url,
+            &config.bot_name,
+            MAIN_BOT_SCRIPT,
+        )
+        .await
+    }
 
-        let runner = Runner::init()?;
-        let rc = runner.init_config(include_str!("../mainbot.js"))?;
+    pub async fn create(token: &str, db_url: &str, name: &str, script: &str) -> ScriptResult<Self> {
+        let db = DB::init(db_url, name.to_owned()).await?;
+
+        Self::with_db(db, token, script).await
+    }
+
+    pub async fn with_db(mut db: DB, token: &str, script: &str) -> ScriptResult<Self> {
+        let bot = Bot::new(token);
+
+        let runner = Runner::init_with_db(&mut db)?;
+        let rc = runner.init_config(script)?;
+        let rc = Arc::new(RwLock::new(rc));
 
         Ok(Self {
             bot,
