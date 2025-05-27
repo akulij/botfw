@@ -106,6 +106,7 @@ pub enum Callback {
 
 type CallbackStore = CallbackInfo<Callback>;
 
+#[derive(Clone)]
 pub struct BotController {
     pub bot: Bot,
     pub db: DB,
