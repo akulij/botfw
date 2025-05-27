@@ -111,6 +111,8 @@ pub struct BotController {
     pub runner: Runner,
 }
 
+const MAIN_BOT_SCRIPT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/mainbot.js"));
+
 impl BotController {
     pub async fn new(config: &Config) -> Result<Self, Box<dyn std::error::Error>> {
         let bot = Bot::new(&config.bot_token);
