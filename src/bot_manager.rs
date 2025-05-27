@@ -36,7 +36,7 @@ lazy_static! {
 static DEFAULT_SCRIPT: &str =
     include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/default_script.js"));
 
-pub async fn deploy_bot(db: &mut DB, token: &str) -> BotResult<BotInfo> {
+pub async fn create_bot(db: &mut DB, token: &str) -> BotResult<BotInstance> {
     let bot = Bot::new(token);
     let name = bot.get_me().await?.username().to_string();
 
@@ -44,7 +44,7 @@ pub async fn deploy_bot(db: &mut DB, token: &str) -> BotResult<BotInfo> {
         .store(db)
         .await?;
 
-    start_bot(bi, &mut db.clone().with_name(name)).await
+    Ok(bi)
 }
 
 pub async fn start_bot(bi: BotInstance, db: &mut DB) -> BotResult<BotInfo> {

@@ -7,7 +7,7 @@ use teloxide::{
 };
 
 use crate::{
-    bot_manager::deploy_bot,
+    bot_manager::create_bot,
     db::{CallDB, DB},
     BotResult,
 };
@@ -162,10 +162,11 @@ pub async fn admin_command_handler(
             Ok(())
         }
         AdminCommands::Deploy { token } => {
-            let bot_info = deploy_bot(&mut db, &token).await?;
+            let bot_instance = create_bot(&mut db, &token).await?;
+
             bot.send_message(
                 msg.chat.id,
-                format!("Deployed bot with name: {}", bot_info.name),
+                format!("Deployed bot with name: {}", bot_instance.name),
             )
             .await?;
             Ok(())
