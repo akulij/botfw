@@ -55,6 +55,8 @@ pub struct Config {
     pub admin_password: String,
     #[envconfig(from = "ADMIN_ID")]
     pub admin_id: u64,
+    #[envconfig(from = "BOT_NAME")]
+    pub bot_name: String,
 }
 
 #[derive(BotCommands, Clone)]
