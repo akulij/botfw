@@ -8,9 +8,11 @@ pub mod message_answerer;
 pub mod mongodb_storage;
 pub mod utils;
 
+use bot_manager::start_bot;
 use botscript::{BotMessage, Runner, RunnerConfig, ScriptError, ScriptResult};
 use commands::BotCommand;
 use db::application::Application;
+use db::bots::BotInstance;
 use db::callback_info::CallbackInfo;
 use db::message_forward::MessageForward;
 use itertools::Itertools;
@@ -179,6 +181,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut bc = BotController::new(&config).await?;
     let state_mgr = MongodbStorage::open(config.db_url.clone().as_ref(), "gongbot", Json).await?;
+
+    for bi in BotInstance::get_all(&mut bc.db).await? {
+        let info = start_bot(bi, &mut bc.db).await?;
+        println!("Started bot: {}", info.name);
+    }
 
     // TODO: delete this in production
     // allow because values are hardcoded and if they will be unparsable
