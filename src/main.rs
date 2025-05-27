@@ -159,6 +159,8 @@ pub enum BotError {
     BotLogicError(String),
     AdminMisconfiguration(String),
     ScriptError(#[from] ScriptError),
+    IoError(#[from] std::io::Error),
+    RwLockError(String),
 }
 
 pub type BotResult<T> = Result<T, BotError>;
