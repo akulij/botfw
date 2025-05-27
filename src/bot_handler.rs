@@ -19,9 +19,10 @@ use crate::{
     update_user_tg, BotResult,
 };
 
-pub fn script_handler(
-    rc: Arc<RwLock<RunnerConfig>>,
-) -> Handler<'static, DependencyMap, BotResult<()>, teloxide::dispatching::DpHandlerDescription> {
+pub type BotHandler =
+    Handler<'static, DependencyMap, BotResult<()>, teloxide::dispatching::DpHandlerDescription>;
+
+pub fn script_handler(rc: Arc<RwLock<RunnerConfig>>) -> BotHandler {
     dptree::entry()
         .inspect(|u: Update| {
             info!("{u:#?}"); // Print the update to the console with inspect
