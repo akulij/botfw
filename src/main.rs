@@ -17,7 +17,7 @@ use itertools::Itertools;
 use log::{error, info, warn};
 use message_answerer::MessageAnswerer;
 use std::str::FromStr;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use teloxide::sugar::request::RequestReplyExt;
 use utils::create_callback_button;
@@ -109,7 +109,7 @@ type CallbackStore = CallbackInfo<Callback>;
 pub struct BotController {
     pub bot: Bot,
     pub db: DB,
-    pub rc: RunnerConfig,
+    pub rc: Arc<RwLock<RunnerConfig>>,
     pub runner: Runner,
 }
 
@@ -177,7 +177,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     //
-    let rc: std::sync::Arc<RwLock<RunnerConfig>> = std::sync::Arc::new(RwLock::new(bc.rc));
+    let rc: std::sync::Arc<RwLock<_>> = bc.rc;
 
     let handler = dptree::entry()
         .inspect(|u: Update| {
