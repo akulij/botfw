@@ -48,9 +48,10 @@ pub async fn create_bot(db: &mut DB, token: &str) -> BotResult<BotInstance> {
 }
 
 pub async fn start_bot(bi: BotInstance, db: &mut DB) -> BotResult<BotInfo> {
+    let mut db = db.clone().with_name(bi.name.clone());
     let controller = BotController::with_db(db.clone(), &bi.token, &bi.script).await?;
 
-    let thread = spawn_bot_thread(controller.clone(), db).await?;
+    let thread = spawn_bot_thread(controller.clone(), &mut db).await?;
 
     let info = BotInfo {
         name: bi.name.clone(),
