@@ -36,16 +36,11 @@ pub fn script_handler(rc: Arc<RwLock<RunnerConfig>>) -> BotHandler {
 
                 rc.get_command_message(command)
             })
-            .endpoint(botscript_command_handler),
+            .endpoint(handle_botmessage),
     )
 }
 
-async fn botscript_command_handler(
-    bot: Bot,
-    mut db: DB,
-    bm: BotMessage,
-    msg: Message,
-) -> BotResult<()> {
+async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -> BotResult<()> {
     info!("Eval BM: {:?}", bm);
     let tguser = match msg.from.clone() {
         Some(user) => user,
