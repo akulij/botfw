@@ -16,6 +16,7 @@ use db::application::Application;
 use db::bots::BotInstance;
 use db::callback_info::CallbackInfo;
 use db::message_forward::MessageForward;
+use handlers::admin::admin_handler;
 use itertools::Itertools;
 use log::{error, info, warn};
 use message_answerer::MessageAnswerer;
@@ -184,7 +185,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state_mgr = MongodbStorage::open(config.db_url.clone().as_ref(), "gongbot", Json).await?;
 
     for bi in BotInstance::get_all(&mut bc.db).await? {
-        let info = start_bot(bi, &mut bc.db).await?;
+        let info = start_bot(bi, &mut bc.db, vec![admin_handler()]).await?;
         println!("Started bot: {}", info.name);
     }
 

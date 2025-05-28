@@ -9,7 +9,7 @@ use teloxide::{
 };
 
 use crate::{
-    bot_handler::script_handler,
+    bot_handler::{script_handler, BotHandler},
     db::{bots::BotInstance, DbError, DB},
     mongodb_storage::MongodbStorage,
     BotController, BotError, BotResult,
@@ -47,11 +47,23 @@ pub async fn create_bot(db: &mut DB, token: &str) -> BotResult<BotInstance> {
     Ok(bi)
 }
 
-pub async fn start_bot(bi: BotInstance, db: &mut DB) -> BotResult<BotInfo> {
+pub async fn start_bot(
+    bi: BotInstance,
+    db: &mut DB,
+    plug_handlers: Vec<BotHandler>,
+) -> BotResult<BotInfo> {
     let mut db = db.clone().with_name(bi.name.clone());
     let controller = BotController::with_db(db.clone(), &bi.token, &bi.script).await?;
 
-    let thread = spawn_bot_thread(controller.clone(), &mut db).await?;
+    let handler = script_handler(controller.rc.clone());
+    // each handler will be added to dptree::entry()
+    let handler = plug_handlers
+        .into_iter()
+        // as well as the script handler at the end
+        .chain(std::iter::once(handler))
+        .fold(dptree::entry(), |h, plug| h.branch(plug));
+
+    let thread = spawn_bot_thread(controller.clone(), &mut db, handler).await?;
 
     let info = BotInfo {
         name: bi.name.clone(),
@@ -80,14 +92,13 @@ pub async fn start_bot(bi: BotInstance, db: &mut DB) -> BotResult<BotInfo> {
 pub async fn spawn_bot_thread(
     bc: BotController,
     db: &mut DB,
+    handler: BotHandler,
 ) -> BotResult<JoinHandle<BotResult<()>>> {
     let state_mgr = MongodbStorage::from_db(db, Json)
         .await
         .map_err(DbError::from)?;
     let thread = std::thread::spawn(move || -> BotResult<()> {
         let state_mgr = state_mgr;
-
-        let handler = script_handler(bc.rc);
 
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
