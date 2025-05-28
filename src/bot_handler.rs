@@ -23,23 +23,21 @@ pub type BotHandler =
     Handler<'static, DependencyMap, BotResult<()>, teloxide::dispatching::DpHandlerDescription>;
 
 pub fn script_handler(rc: Arc<RwLock<RunnerConfig>>) -> BotHandler {
-    dptree::entry()
-        .inspect(|u: Update| {
-            info!("{u:#?}"); // Print the update to the console with inspect
-        })
-        .branch(
-            Update::filter_message()
-                .filter_map(|m: Message| m.text().and_then(|t| BotCommand::from_str(t).ok()))
-                .filter_map(move |bc: BotCommand| {
-                    let rc = std::sync::Arc::clone(&rc);
-                    let command = bc.command();
+    dptree::entry().branch(
+        Update::filter_message()
+            // check if message is command
+            .filter_map(|m: Message| m.text().and_then(|t| BotCommand::from_str(t).ok()))
+            // check if command is presented in config
+            .filter_map(move |bc: BotCommand| {
+                let rc = std::sync::Arc::clone(&rc);
+                let command = bc.command();
 
-                    let rc = rc.read().expect("RwLock lock on commands map failed");
+                let rc = rc.read().expect("RwLock lock on commands map failed");
 
-                    rc.get_command_message(command)
-                })
-                .endpoint(botscript_command_handler),
-        )
+                rc.get_command_message(command)
+            })
+            .endpoint(botscript_command_handler),
+    )
 }
 
 async fn botscript_command_handler(
