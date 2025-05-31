@@ -42,6 +42,7 @@ const dialog = {
 }
 
 function leave_application(user) {
+    print("point of reach")
     print(JSON.stringify(user))
     user_application(user)
 
