@@ -9,6 +9,8 @@ jobs:
     name: cargo build
     runs-on: ubuntu-latest
     steps:
+      - name: Install clang to compile quickjs-ng
+        run: apt update && apt install -y clang libclang-dev
       - name: Restore cached toolchain 
         id: cache-toolchain
         uses: actions/cache/restore@v4
