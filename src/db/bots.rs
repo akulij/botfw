@@ -75,4 +75,19 @@ impl BotInstance {
             .await?;
         Ok(())
     }
+
+    pub async fn update_script<D: CallDB>(db: &mut D, name: &str, script: &str) -> DbResult<()> {
+        let bi = db.get_collection::<Self>().await;
+
+        bi.update_one(
+            doc! {"name": name},
+            doc! { "$set": {
+                    "script": script,
+                    "restart_flag": true,
+                }
+            },
+        )
+        .await?;
+        Ok(())
+    }
 }
