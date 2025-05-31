@@ -17,6 +17,7 @@ pub struct BotInstance {
     pub name: String,
     pub token: String,
     pub script: String,
+    pub restart_flag: bool,
     pub created_at: DateTime<FixedOffset>,
 }
 
@@ -31,6 +32,7 @@ impl BotInstance {
             name,
             token,
             script,
+            restart_flag: false,
             created_at: Local::now().into(),
         }
     }
@@ -53,5 +55,24 @@ impl BotInstance {
         let bi = db.get_collection::<Self>().await;
 
         Ok(bi.find_one(doc! {"name": name}).await?)
+    }
+
+    pub async fn restart_one<D: CallDB>(db: &mut D, name: &str, restart: bool) -> DbResult<()> {
+        let bi = db.get_collection::<Self>().await;
+
+        bi.update_one(
+            doc! {"name": name},
+            doc! { "$set": { "restart_flag": restart } },
+        )
+        .await?;
+        Ok(())
+    }
+
+    pub async fn restart_all<D: CallDB>(db: &mut D, restart: bool) -> DbResult<()> {
+        let bi = db.get_collection::<Self>().await;
+
+        bi.update_many(doc! {}, doc! { "$set": { "restart_flag": restart } })
+            .await?;
+        Ok(())
     }
 }
