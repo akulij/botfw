@@ -592,6 +592,12 @@ impl RunnerConfig {
 
         bm.map(|bm| bm.fill_literal(command.to_string()))
     }
+
+    pub fn get_callback_message(&self, callback: &str) -> Option<BotMessage> {
+        let bm = self.dialog.buttons.get(callback).cloned();
+
+        bm.map(|bm| bm.fill_literal(callback.to_string()))
+    }
 }
 
 impl Parcelable<BotFunction> for RunnerConfig {
