@@ -479,6 +479,8 @@ pub struct Button {
 pub struct BotMessage {
     // buttons: Vec<Button>
     literal: Option<String>,
+    #[serde(default)]
+    replace: bool,
     buttons: Option<KeyboardDefinition>,
     state: Option<String>,
 
@@ -491,6 +493,10 @@ impl BotMessage {
             literal: self.clone().literal.or(Some(l)),
             ..self.clone()
         }
+    }
+
+    pub fn is_replace(&self) -> bool {
+        self.replace
     }
 }
 
