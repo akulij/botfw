@@ -1,3 +1,4 @@
+pub mod application;
 pub mod db;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, PoisonError};
