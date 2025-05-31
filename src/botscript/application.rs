@@ -29,6 +29,7 @@ pub fn attach_user_application(
 
     let user_application =
         c.create_callback(move |q: OwnedJsObject| -> Result<_, ScriptError> {
+            println!("user_application is called");
             let db = db.clone();
             let user: teloxide::types::User = match from_js(q.context(), &q) {
                 Ok(q) => q,
@@ -38,6 +39,7 @@ pub fn attach_user_application(
             let application = futures::executor::block_on(
                 Application::new(user.clone()).store_db(&mut db.write().unwrap()),
             )?;
+            println!("there1");
 
             let db2 = db.clone();
             let msg = tokio::task::block_in_place(move || {
@@ -50,6 +52,7 @@ pub fn attach_user_application(
                     .await
                 })
             });
+            println!("there2");
             let msg = match msg {
                 Ok(msg) => msg,
                 Err(err) => {
@@ -67,10 +70,12 @@ pub fn attach_user_application(
                 .answer("left_application_msg", None, None),
             )
             .unwrap();
+            println!("there3");
             futures::executor::block_on(
                 MessageForward::new(msg.chat.id.0, msg.id.0, chat_id, msg_id, false)
                     .store_db(&mut db.write().unwrap()),
             )?;
+            println!("there4");
 
             let ret = true;
             Ok(ret)
