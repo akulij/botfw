@@ -2,30 +2,31 @@
 
 const PROJECTS_COUNT = 2
 
+const start_msg = {
+    buttons: [
+        [{ name: { literal: "show_projects" }, callback_name: "project_0" }],
+        [{ name: { literal: "more_info_btn" }, callback_name: "more_info" }],
+        [{ name: { literal: "leave_application" }, callback_name: "leave_application" }],
+        [{ name: { literal: "ask_question_btn" }, callback_name: "ask_question" }],
+    ], // default is `null`
+    replace: true,
+    state: "start"
+};
 const dialog = {
     commands: {
-        start: {
-            buttons: [
-                [{name: {literal: "more_info_btn"}, callback_name: "more_info"}],
-                [{name: {literal: "show_projects"}, callback_name: "project_0"}],
-            ], // default is `null`
-            state: "start"
-        },
+        start: start_msg,
     },
     buttons: {
         more_info: {
             buttons: [
-                [{name: {name: "На главную"}, callback_name: "start"}],
+                [{ name: { name: "На главную" }, callback_name: "start" }],
             ]
         },
-        start: {
-            buttons: [
-                [{name: {literal: "more_info_btn"}, callback_name: "more_info"}],
-                [{name: {literal: "show_projects"}, callback_name: "project_0"}],
-            ], // default is `null`
-            replace: true,
-            state: "start"
+        start: start_msg,
+        leave_application: {
+            handler: leave_application
         },
+        ask_question: {}
     },
     stateful_msg_handlers: {
         start: {}, // everything is by default, so just send message `start`
@@ -39,7 +40,14 @@ const dialog = {
     },
 }
 
-function enter_name() {}
+function leave_application(user) {
+    print(JSON.stringify(user))
+    user_application(user)
+
+    return false
+}
+
+function enter_name() { }
 
 const fmt = (number) => number.toString().padStart(2, '0');
 
@@ -47,13 +55,13 @@ function add_project_callbacks(point) {
     for (const i of Array(PROJECTS_COUNT).keys()) {
         buttons = [
             [],
-            [{name: {name: "На главную"}, callback_name: "start"}]
+            [{ name: { name: "На главную" }, callback_name: "start" }]
         ]
         if (i > 0) {
-            buttons[0].push({name: {literal: "prev_project"}, callback_name: `project_${i-1}`})
+            buttons[0].push({ name: { literal: "prev_project" }, callback_name: `project_${i - 1}` })
         }
         if (i < PROJECTS_COUNT - 1) {
-            buttons[0].push({name: {literal: "next_project"}, callback_name: `project_${i+1}`})
+            buttons[0].push({ name: { literal: "next_project" }, callback_name: `project_${i + 1}` })
         }
 
         point[`project_${i}`] = {
@@ -70,5 +78,5 @@ const config = {
 }
 
 // {config, dialog}
-const c = {config: config, dialog: dialog}
+const c = { config: config, dialog: dialog }
 c
