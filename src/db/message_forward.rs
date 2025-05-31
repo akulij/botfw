@@ -2,6 +2,7 @@ use bson::doc;
 use serde::{Deserialize, Serialize};
 
 use super::DbResult;
+use super::DB;
 use crate::query_call_consume;
 use crate::CallDB;
 
@@ -41,6 +42,15 @@ impl MessageForward {
 
         Ok(self)
     });
+
+    pub async fn store_db(self, db: &mut DB) -> DbResult<Self> {
+        let db = db.get_database().await;
+        let ci = db.collection::<Self>("message_forward");
+
+        ci.insert_one(&self).await?;
+
+        Ok(self)
+    }
 
     pub async fn get<D: CallDB>(
         db: &mut D,
