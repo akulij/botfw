@@ -1,17 +1,21 @@
 use std::str::FromStr;
 
 use itertools::Itertools;
-use log::info;
+use log::{info, warn};
 use std::time::Duration;
 use teloxide::dispatching::dialogue::serializer::Json;
+use teloxide::net::Download;
 use teloxide::prelude::*;
 use teloxide::sugar::request::RequestReplyExt;
 use teloxide::types::{MediaKind, MessageId, MessageKind, ParseMode};
 use teloxide::utils::render::RenderMessageTextHelper;
 use teloxide::{dptree, types::Update};
 
+use futures::StreamExt;
+
 use crate::admin::{admin_command_handler, AdminCommands};
 use crate::bot_handler::BotHandler;
+use crate::db::bots::BotInstance;
 use crate::db::message_forward::MessageForward;
 use crate::db::{CallDB, DB};
 use crate::mongodb_storage::MongodbStorage;
@@ -54,6 +58,21 @@ pub fn admin_handler() -> BotHandler {
                 )
                 .branch(
                     Update::filter_message()
+                        .filter_map(|msg: Message| {
+                            let text = msg.caption().unwrap_or("");
+                            let mut parts = text.split_whitespace();
+                            let cmd = parts.next().unwrap_or("");
+                            let arg = parts.next().unwrap_or("");
+
+                            match cmd.to_lowercase().as_str() == "/newscript" {
+                                true => Some(arg.to_string()),
+                                false => None,
+                            }
+                        })
+                        .endpoint(newscript_handler),
+                )
+                .branch(
+                    Update::filter_message()
                         .filter(|msg: Message| msg.reply_to_message().is_some())
                         .filter(|state: State| matches!(state, State::Start))
                         .endpoint(support_reply_handler),
@@ -73,6 +92,51 @@ pub fn admin_handler() -> BotHandler {
                 .enter_dialogue::<Message, MongodbStorage<Json>, State>()
                 .branch(dptree::case![State::MessageForwardReply].endpoint(user_reply_to_support)),
         )
+}
+async fn newscript_handler(bot: Bot, mut db: DB, msg: Message, name: String) -> BotResult<()> {
+    let script = match msg.kind {
+        MessageKind::Common(message) => {
+            match message.media_kind {
+                MediaKind::Document(media_document) => {
+                    let doc = media_document.document;
+                    let file = bot.get_file(doc.file.id).await?;
+                    let mut stream = bot.download_file_stream(&file.path);
+                    let mut buf: Vec<u8> = Vec::new();
+                    while let Some(bytes) = stream.next().await {
+                        let mut bytes = bytes.unwrap().to_vec();
+                        buf.append(&mut bytes);
+                    }
+                    let script = match String::from_utf8(buf) {
+                        Ok(s) => s,
+                        Err(err) => {
+                            warn!("Failed to parse buf to string, err: {err}");
+                            bot.send_message(msg.chat.id, format!("Failed to Convert file to script: file is not UTF-8, err: {err}")).await?;
+                            return Ok(());
+                        }
+                    };
+                    script
+                }
+                _ => todo!(),
+            }
+        }
+        _ => todo!(),
+    };
+
+    match BotInstance::get_by_name(&mut db, &name).await? {
+        Some(bi) => bi,
+        None => {
+            bot.send_message(
+                msg.chat.id,
+                format!("Failed to set script, possibly bots name is incorrent"),
+            )
+            .await?;
+            return Ok(());
+        }
+    };
+    BotInstance::update_script(&mut db, &name, &script).await?;
+
+    bot.send_message(msg.chat.id, "New script is set!").await?;
+    Ok(())
 }
 
 async fn button_edit_callback(
