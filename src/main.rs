@@ -49,7 +49,7 @@ use teloxide::{
 
 type BotDialogue = Dialogue<State, MongodbStorage<Json>>;
 
-#[derive(Envconfig)]
+#[derive(Envconfig, Clone)]
 pub struct Config {
     #[envconfig(from = "BOT_TOKEN")]
     pub bot_token: String,
