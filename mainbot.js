@@ -24,6 +24,7 @@ const dialog = {
         },
         start: start_msg,
         leave_application: {
+            literal: "left_application_msg",
             handler: leave_application
         },
         ask_question: {}
