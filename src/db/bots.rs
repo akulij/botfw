@@ -11,7 +11,7 @@ use crate::db::GetCollection;
 use crate::query_call_consume;
 use crate::CallDB;
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Clone)]
 pub struct BotInstance {
     pub _id: bson::oid::ObjectId,
     pub name: String,
