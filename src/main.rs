@@ -118,6 +118,8 @@ pub struct BotController {
     pub runner: Runner,
 }
 
+unsafe impl Send for BotController {}
+
 const MAIN_BOT_SCRIPT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/mainbot.js"));
 
 impl BotController {
