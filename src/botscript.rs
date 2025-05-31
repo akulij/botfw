@@ -122,6 +122,13 @@ impl BotFunction {
         }
     }
 
+    pub fn context(&self) -> Option<*mut quickjs_rusty::JSContext> {
+        match &self.func {
+            FunctionMarker::Function(js_function) => Some(js_function.context()),
+            FunctionMarker::StrTemplate(_) => None,
+        }
+    }
+
     pub fn call(&self) -> ScriptResult<JsValue> {
         self.call_args(Default::default())
     }
