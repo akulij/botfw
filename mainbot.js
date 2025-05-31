@@ -1,21 +1,31 @@
 // db - is set globally
 
+const PROJECTS_COUNT = 2
+
 const dialog = {
     commands: {
         start: {
-            buttons: start_buttons, // default is `null`
+            buttons: [
+                [{name: {literal: "more_info_btn"}, callback_name: "more_info"}],
+                [{name: {literal: "show_projects"}, callback_name: "project_0"}],
+            ], // default is `null`
             state: "start"
         },
-        cancel: {
-            buttons: [
-                [{name: {name: "Def"}, callback_name: "defcall"}]
-            ],
-            state: "none"
-        },
-        somecomplicatedcmd: {}
     },
     buttons: {
-        more_info: {},
+        more_info: {
+            buttons: [
+                [{name: {name: "На главную"}, callback_name: "start"}],
+            ]
+        },
+        start: {
+            buttons: [
+                [{name: {literal: "more_info_btn"}, callback_name: "more_info"}],
+                [{name: {literal: "show_projects"}, callback_name: "project_0"}],
+            ], // default is `null`
+            replace: true,
+            state: "start"
+        },
     },
     stateful_msg_handlers: {
         start: {}, // everything is by default, so just send message `start`
@@ -33,27 +43,27 @@ function enter_name() {}
 
 const fmt = (number) => number.toString().padStart(2, '0');
 
-const formatDate = (date) => {
-    const [h, m, d, M, y] = [
-        date.getHours(),
-        date.getMinutes(),
-        date.getDate(),
-        date.getMonth(),
-        date.getFullYear()
-    ];
-    return `${fmt(h)}:${fmt(m)} ${fmt(d)}-${fmt(M + 1)}-${y}`
-};
+function add_project_callbacks(point) {
+    for (const i of Array(PROJECTS_COUNT).keys()) {
+        buttons = [
+            [],
+            [{name: {name: "На главную"}, callback_name: "start"}]
+        ]
+        if (i > 0) {
+            buttons[0].push({name: {literal: "prev_project"}, callback_name: `project_${i-1}`})
+        }
+        if (i < PROJECTS_COUNT - 1) {
+            buttons[0].push({name: {literal: "next_project"}, callback_name: `project_${i+1}`})
+        }
 
-function start_buttons() {
-    const now = new Date();
-    const dateFormated = formatDate(now);
-
-    // return 1
-    return [
-        [{name: {name: dateFormated}, callback_name: "no"}],
-        [{name: {name: "Hello!"}, callback_name: "no"}],
-    ]
+        point[`project_${i}`] = {
+            replace: true,
+            buttons: buttons
+        }
+    }
 }
+add_project_callbacks(dialog.buttons)
+print(JSON.stringify(dialog.buttons))
 
 const config = {
     version: 1.1,
