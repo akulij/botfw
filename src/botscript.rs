@@ -13,12 +13,12 @@ use itertools::Itertools;
 use quickjs_rusty::serde::from_js;
 use quickjs_rusty::utils::create_empty_object;
 use quickjs_rusty::utils::create_string;
-use quickjs_rusty::Context;
 use quickjs_rusty::ContextError;
 use quickjs_rusty::ExecutionError;
 use quickjs_rusty::JsFunction;
 use quickjs_rusty::OwnedJsValue as JsValue;
 use quickjs_rusty::ValueError;
+use quickjs_rusty::{Context, OwnedJsObject};
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -663,6 +663,17 @@ impl Runner {
         Ok(Runner {
             context: Arc::new(Mutex::new(context)),
         })
+    }
+
+    pub fn call_attacher<F, R>(&mut self, f: F) -> ScriptResult<R>
+    where
+        F: FnOnce(&Context, &mut OwnedJsObject) -> R,
+    {
+        let context = self.context.lock().unwrap();
+        let mut global = context.global()?;
+
+        let res = f(&context, &mut global);
+        Ok(res)
     }
 
     pub fn run_script(&self, content: &str) -> ScriptResult<JsValue> {
