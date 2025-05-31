@@ -23,6 +23,8 @@ use crate::{BotDialogue, BotError, BotResult, CallbackStore, State};
 
 pub fn admin_handler() -> BotHandler {
     dptree::entry()
+        // keep on top to cancel any action
+        .branch(cancel_handler())
         .branch(
             Update::filter_callback_query()
                 .filter_async(async |q: CallbackQuery, mut db: DB| {
@@ -197,6 +199,17 @@ async fn button_edit_callback(
     Ok(())
 }
 
+fn cancel_handler() -> BotHandler {
+    Update::filter_message()
+        .filter(|msg: Message| msg.text() == Some("/cancel"))
+        .enter_dialogue::<Message, MongodbStorage<Json>, State>()
+        .endpoint(async |bot: Bot, msg: Message, dialogue: BotDialogue| {
+            dialogue.exit().await?;
+            bot.send_message(msg.chat.id, "Диалог закончен!").await?;
+            Ok(())
+        })
+}
+
 fn command_handler() -> BotHandler {
     Update::filter_message()
         .filter_async(async |msg: Message, mut db: DB| {
@@ -300,6 +313,10 @@ async fn support_reply_handler(
         _ => unreachable!(),
     };
 
+    let text = format!(
+        "Сообщение от поддержки:\n{}\nЧтобы закончить диалог, нажмите на /cancel",
+        text
+    );
     let msg = bot
         .send_message(ChatId(mf.source_chat_id), text)
         .parse_mode(ParseMode::Html);
