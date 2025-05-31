@@ -9,38 +9,27 @@ pub mod message_answerer;
 pub mod mongodb_storage;
 pub mod utils;
 
-use bot_manager::start_bot;
+use bot_manager::BotManager;
 use botscript::{BotMessage, Runner, RunnerConfig, ScriptError, ScriptResult};
-use commands::BotCommand;
 use db::application::Application;
 use db::bots::BotInstance;
 use db::callback_info::CallbackInfo;
 use db::message_forward::MessageForward;
 use handlers::admin::admin_handler;
-use itertools::Itertools;
 use log::{error, info, warn};
 use message_answerer::MessageAnswerer;
-use std::str::FromStr;
 use std::sync::{Arc, RwLock};
-use std::time::Duration;
-use teloxide::sugar::request::RequestReplyExt;
 use utils::create_callback_button;
 
-use crate::admin::{admin_command_handler, AdminCommands};
-use crate::admin::{secret_command_handler, SecretCommands};
 use crate::db::{CallDB, DB};
 use crate::mongodb_storage::MongodbStorage;
 
-use chrono::{DateTime, Utc};
 use db::DbError;
 use envconfig::Envconfig;
 use serde::{Deserialize, Serialize};
 use teloxide::dispatching::dialogue::serializer::Json;
 use teloxide::dispatching::dialogue::{GetChatId, Serializer};
-use teloxide::types::{
-    InlineKeyboardButton, InlineKeyboardMarkup, InputFile, InputMedia, MediaKind, MessageId,
-    MessageKind, ParseMode, ReplyMarkup,
-};
+use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup};
 use teloxide::{
     payloads::SendMessageSetters,
     prelude::*,
@@ -183,64 +172,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     pretty_env_logger::init();
     let config = Config::init_from_env()?;
 
-    let mut bc = BotController::new(&config).await?;
-    let state_mgr = MongodbStorage::open(config.db_url.clone().as_ref(), "gongbot", Json).await?;
+    let mut db = DB::init(&config.db_url, config.bot_name.to_owned()).await?;
 
-    for bi in BotInstance::get_all(&mut bc.db).await? {
-        let info = start_bot(bi, &mut bc.db, vec![admin_handler()]).await?;
-        println!("Started bot: {}", info.name);
-    }
+    BotInstance::restart_all(&mut db, false).await?;
+    let bm = BotManager::with(
+        async || {
+            let config = config.clone();
 
-    // TODO: delete this in production
-    // allow because values are hardcoded and if they will be unparsable
-    // we should panic anyway
-    #[allow(clippy::unwrap_used)]
-    let events: Vec<DateTime<Utc>> = ["2025-04-09T18:00:00+04:00", "2025-04-11T16:00:00+04:00"]
-        .iter()
-        .map(|d| DateTime::parse_from_rfc3339(d).unwrap().into())
-        .collect();
+            let mut db = DB::init(config.db_url, config.bot_name.to_owned())
+                .await
+                .unwrap();
+            let bi = BotInstance::new(
+                config.bot_name,
+                config.bot_token,
+                MAIN_BOT_SCRIPT.to_string(),
+            );
+            let instances = BotInstance::get_all(&mut db).await.unwrap();
+            BotInstance::restart_all(&mut db, false).await.unwrap();
+            std::iter::once(bi).chain(instances)
+        },
+        async |bi| vec![admin_handler()].into_iter(),
+    );
 
-    for event in events {
-        match bc.db.create_event(event).await {
-            Ok(e) => info!("Created event {}", e._id),
-            Err(err) => info!("Failed to create event, error: {}", err),
-        }
-    }
-    //
-    let rc: std::sync::Arc<RwLock<_>> = bc.rc;
-
-    let handler = dptree::entry()
-        .inspect(|u: Update| {
-            info!("{u:#?}"); // Print the update to the console with inspect
-        })
-        .branch(
-            Update::filter_message()
-                .filter_map(|m: Message| m.text().and_then(|t| BotCommand::from_str(t).ok()))
-                .filter_map(move |bc: BotCommand| {
-                    let rc = std::sync::Arc::clone(&rc);
-                    let command = bc.command();
-
-                    let rc = rc.read().expect("RwLock lock on commands map failed");
-
-                    rc.get_command_message(command)
-                })
-                .endpoint(botscript_command_handler),
-        )
-        // .branch(
-        //     Update::filter_message()
-        //         .enter_dialogue::<Message, MongodbStorage<Json>, State>()
-        //         .branch(dptree::case![State::MessageForwardReply].endpoint(user_reply_to_support)),
-        // )
-        .branch(Update::filter_message().endpoint(echo));
-
-    Dispatcher::builder(bc.bot, handler)
-        .dependencies(dptree::deps![bc.db, state_mgr])
-        .enable_ctrlc_handler()
-        .build()
-        .dispatch()
-        .await;
-
-    Ok(())
+    bm.dispatch(&mut db).await;
 }
 
 async fn botscript_command_handler(
