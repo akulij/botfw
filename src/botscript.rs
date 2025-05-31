@@ -562,6 +562,7 @@ impl Parcelable<BotFunction> for BotMessage {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BotDialog {
     pub commands: HashMap<String, BotMessage>,
+    pub buttons: HashMap<String, BotMessage>,
     stateful_msg_handlers: HashMap<String, BotMessage>,
 }
 
@@ -569,6 +570,7 @@ impl Parcelable<BotFunction> for BotDialog {
     fn get_field(&mut self, name: &str) -> Result<ParcelType<BotFunction>, ParcelableError> {
         match name {
             "commands" => Ok(ParcelType::Parcelable(&mut self.commands)),
+            "buttons" => Ok(ParcelType::Parcelable(&mut self.buttons)),
             "stateful_msg_handlers" => Ok(ParcelType::Parcelable(&mut self.stateful_msg_handlers)),
             field => Err(ParcelableError::FieldError(format!(
                 "tried to get field {field}, but this field does not exists or private"
