@@ -1,3 +1,5 @@
+pub mod parcelable;
+
 use serde::{Deserialize, Serialize};
 use teloxide::types::InlineKeyboardButton;
 

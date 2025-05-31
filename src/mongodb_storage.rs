@@ -9,6 +9,8 @@ use mongodb::Database;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use teloxide::dispatching::dialogue::{Serializer, Storage};
 
+use crate::db::{CallDB, DB};
+
 pub struct MongodbStorage<S> {
     database: Database,
     serializer: S,
@@ -25,6 +27,13 @@ impl<S> MongodbStorage<S> {
 
         Ok(Arc::new(Self {
             database,
+            serializer,
+        }))
+    }
+
+    pub async fn from_db(db: &mut DB, serializer: S) -> Result<Arc<Self>, mongodb::error::Error> {
+        Ok(Arc::new(Self {
+            database: CallDB::get_database(db).await,
             serializer,
         }))
     }

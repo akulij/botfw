@@ -1,6 +1,8 @@
 pub mod application;
+pub mod bots;
 pub mod callback_info;
 pub mod message_forward;
+pub mod raw_calls;
 
 use std::time::Duration;
 
@@ -11,7 +13,7 @@ use futures::stream::TryStreamExt;
 
 use mongodb::options::IndexOptions;
 use mongodb::{bson::doc, options::ClientOptions, Client};
-use mongodb::{Database, IndexModel};
+use mongodb::{Collection, Database, IndexModel};
 use serde::{Deserialize, Serialize};
 
 #[derive(EnumStringify)]
@@ -140,14 +142,15 @@ pub struct Media {
 #[derive(Clone)]
 pub struct DB {
     client: Client,
+    name: String,
 }
 
 impl DB {
-    pub async fn new<S: Into<String>>(db_url: S) -> DbResult<Self> {
+    pub async fn new<S: Into<String>>(db_url: S, name: String) -> DbResult<Self> {
         let options = ClientOptions::parse(db_url.into()).await?;
         let client = Client::with_options(options)?;
 
-        Ok(DB { client })
+        Ok(DB { client, name })
     }
 
     pub async fn migrate(&mut self) -> DbResult<()> {
@@ -184,18 +187,38 @@ impl DB {
         Ok(())
     }
 
-    pub async fn init<S: Into<String>>(db_url: S) -> DbResult<Self> {
-        let mut db = Self::new(db_url).await?;
+    pub async fn init<S: Into<String>>(db_url: S, name: String) -> DbResult<Self> {
+        let mut db = Self::new(db_url, name).await?;
         db.migrate().await?;
 
         Ok(db)
     }
+
+    pub fn with_name(self, name: String) -> Self {
+        Self { name, ..self }
+    }
+}
+
+pub trait DbCollection {
+    const COLLECTION: &str;
+}
+
+pub trait GetCollection {
+    async fn get_collection<C: DbCollection + Send + Sync>(&mut self) -> Collection<C>;
 }
 
 #[async_trait]
 impl CallDB for DB {
     async fn get_database(&mut self) -> Database {
-        self.client.database("gongbot")
+        self.client.database(&self.name)
+    }
+}
+
+impl<T: CallDB> GetCollection for T {
+    async fn get_collection<C: DbCollection + Send + Sync>(&mut self) -> Collection<C> {
+        self.get_database()
+            .await
+            .collection(<C as DbCollection>::COLLECTION)
     }
 }
 
