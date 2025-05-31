@@ -75,6 +75,11 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
                 None => break 'prop true,
             };
             let jsuser = to_js(ctx, &tguser).unwrap();
+            info!(
+                "Calling handler {:?} with msg literal: {:?}",
+                handler,
+                bm.literal()
+            );
             match handler.call_args(vec![jsuser]) {
                 Ok(v) => {
                     if v.is_bool() {
