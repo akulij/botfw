@@ -1,4 +1,5 @@
-use log::info;
+use log::{error, info};
+use quickjs_rusty::serde::to_js;
 use std::{
     str::FromStr,
     sync::{Arc, RwLock},
@@ -66,6 +67,39 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
     let user = update_user_tg(user, &tguser);
     user.update_user(&mut db).await?;
 
+    let is_propagate: bool = match bm.get_handler() {
+        Some(handler) => 'prop: {
+            let ctx = match handler.context() {
+                Some(ctx) => ctx,
+                // falling back to propagation
+                None => break 'prop true,
+            };
+            let jsuser = to_js(ctx, &tguser).unwrap();
+            match handler.call_args(vec![jsuser]) {
+                Ok(v) => {
+                    if v.is_bool() {
+                        v.to_bool().unwrap_or(true)
+                    } else if v.is_int() {
+                        v.to_int().unwrap_or(1) != 0
+                    } else {
+                        // falling back to propagation
+                        true
+                    }
+                }
+                Err(err) => {
+                    error!("Failed to get return of handler, err: {err}");
+                    // falling back to propagation
+                    true
+                }
+            }
+        }
+        None => true,
+    };
+
+    if !is_propagate {
+        return Ok(());
+    }
+
     let buttons = bm
         .resolve_buttons(&mut db)
         .await?
@@ -101,6 +135,39 @@ async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery)
         .await?;
     let user = update_user_tg(user, &tguser);
     user.update_user(&mut db).await?;
+
+    let is_propagate: bool = match bm.get_handler() {
+        Some(handler) => 'prop: {
+            let ctx = match handler.context() {
+                Some(ctx) => ctx,
+                // falling back to propagation
+                None => break 'prop true,
+            };
+            let jsuser = to_js(ctx, &tguser).unwrap();
+            match handler.call_args(vec![jsuser]) {
+                Ok(v) => {
+                    if v.is_bool() {
+                        v.to_bool().unwrap_or(true)
+                    } else if v.is_int() {
+                        v.to_int().unwrap_or(1) != 0
+                    } else {
+                        // falling back to propagation
+                        true
+                    }
+                }
+                Err(err) => {
+                    error!("Failed to get return of handler, err: {err}");
+                    // falling back to propagation
+                    true
+                }
+            }
+        }
+        None => true,
+    };
+
+    if !is_propagate {
+        return Ok(());
+    }
 
     let buttons = bm
         .resolve_buttons(&mut db)
