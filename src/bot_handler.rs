@@ -141,7 +141,7 @@ async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery)
     let user = update_user_tg(user, &tguser);
     user.update_user(&mut db).await?;
 
-    info!("Is handler set: {}", bm.get_handler().is_some());
+    println!("Is handler set: {}", bm.get_handler().is_some());
     let is_propagate: bool = match bm.get_handler() {
         Some(handler) => 'prop: {
             let ctx = match handler.context() {
@@ -150,7 +150,7 @@ async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery)
                 None => break 'prop true,
             };
             let jsuser = to_js(ctx, &tguser).unwrap();
-            info!(
+            println!(
                 "Calling handler {:?} with msg literal: {:?}",
                 handler,
                 bm.literal()
