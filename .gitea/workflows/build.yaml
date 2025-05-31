@@ -2,7 +2,7 @@ name: Build && Deploy
 on:
   push:
     branches:
-      - main
+      - dev
 
 jobs:
   build:
@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: Install clang to compile quickjs-ng
         run: apt update && apt install -y clang libclang-dev
-      - name: Restore cached toolchain 
+      - name: Restore cached toolchain
         id: cache-toolchain
         uses: actions/cache/restore@v4
         with:
@@ -24,7 +24,7 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
-      - name: Save cached toolchain 
+      - name: Save cached toolchain
         id: cache-toolchain-save
         uses: actions/cache/save@v4
         with:
@@ -65,7 +65,3 @@ jobs:
         with:
           name: botrunner
           path: target/x86_64-unknown-linux-gnu/release/gongbotrs
-
-      - name: Deploy with WebHook
-        # temporary solutino to hardcode artifact url, because upload-artifact's artifact-url gives wrong one
-        run: curl http://${{ secrets.SERVER_ADDR }}/hooks/gongbot-deploy?binaryzip='https://git.akulij.ru/akulij/gongbotrs/actions/runs/${{ gitea.run_number }}/artifacts/botrunner'
