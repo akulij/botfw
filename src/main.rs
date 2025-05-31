@@ -10,6 +10,7 @@ pub mod mongodb_storage;
 pub mod utils;
 
 use bot_manager::BotManager;
+use botscript::application::attach_user_application;
 use botscript::{BotMessage, Runner, RunnerConfig, ScriptError, ScriptResult};
 use db::application::Application;
 use db::bots::BotInstance;
@@ -131,7 +132,8 @@ impl BotController {
     pub async fn with_db(mut db: DB, token: &str, script: &str) -> ScriptResult<Self> {
         let bot = Bot::new(token);
 
-        let runner = Runner::init_with_db(&mut db)?;
+        let mut runner = Runner::init_with_db(&mut db)?;
+        runner.call_attacher(|c, o| attach_user_application(c, o, &db, &bot))??;
         let rc = runner.init_config(script)?;
         let rc = Arc::new(RwLock::new(rc));
 
