@@ -506,6 +506,10 @@ impl BotMessage {
     pub fn is_replace(&self) -> bool {
         self.replace
     }
+
+    pub fn get_handler(&self) -> Option<&BotFunction> {
+        self.handler.as_ref()
+    }
 }
 
 impl BotMessage {
