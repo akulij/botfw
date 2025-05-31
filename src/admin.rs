@@ -1,5 +1,3 @@
-use std::fmt::format;
-
 use itertools::Itertools;
 use teloxide::{
     prelude::*,
@@ -7,8 +5,8 @@ use teloxide::{
 };
 
 use crate::{
-    bot_manager::create_bot,
-    db::{CallDB, DB},
+    bot_manager::DEFAULT_SCRIPT,
+    db::{bots::BotInstance, CallDB, DB},
     BotResult,
 };
 use crate::{BotDialogue, LogMsg, State};
@@ -162,7 +160,27 @@ pub async fn admin_command_handler(
             Ok(())
         }
         AdminCommands::Deploy { token } => {
-            let bot_instance = create_bot(&mut db, &token).await?;
+            let bot_instance = {
+                let botnew = Bot::new(&token);
+                let name = match botnew.get_me().await {
+                    Ok(me) => me.username().to_string(),
+                    Err(teloxide::RequestError::Api(teloxide::ApiError::InvalidToken)) => {
+                        bot.send_message(msg.chat.id, "Error: bot token is invalid")
+                            .await?;
+                        return Ok(());
+                    }
+                    Err(err) => {
+                        return Err(err.into());
+                    }
+                };
+
+                let bi =
+                    BotInstance::new(name.clone(), token.to_string(), DEFAULT_SCRIPT.to_string())
+                        .store(&mut db)
+                        .await?;
+
+                bi
+            };
 
             bot.send_message(
                 msg.chat.id,

@@ -169,17 +169,6 @@ async fn script_handler_gen(c: BotController, plug_handlers: Vec<BotHandler>) ->
     handler
 }
 
-pub async fn create_bot(db: &mut DB, token: &str) -> BotResult<BotInstance> {
-    let bot = Bot::new(token);
-    let name = bot.get_me().await?.username().to_string();
-
-    let bi = BotInstance::new(name.clone(), token.to_string(), DEFAULT_SCRIPT.to_string())
-        .store(db)
-        .await?;
-
-    Ok(bi)
-}
-
 pub async fn start_bot(
     bi: BotInstance,
     db: &mut DB,
