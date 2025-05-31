@@ -48,4 +48,10 @@ impl BotInstance {
 
         Ok(bi.find(doc! {}).await?.try_collect().await?)
     }
+
+    pub async fn get_by_name<D: CallDB>(db: &mut D, name: &str) -> DbResult<Option<Self>> {
+        let bi = db.get_collection::<Self>().await;
+
+        Ok(bi.find_one(doc! {"name": name}).await?)
+    }
 }
