@@ -160,7 +160,7 @@ async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery)
                 handler,
                 bm.literal()
             );
-            match handler.call_args(vec![]) {
+            match handler.call_args(vec![jsuser]) {
                 Ok(v) => {
                     // let ctx = quickjs_rusty::Context::from(value)
                     println!("Ok branch, value: {:?}", v);
