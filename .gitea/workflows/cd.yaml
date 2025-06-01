@@ -46,7 +46,7 @@ jobs:
             ~/.cargo/git/db/
             target
           key: linux-project-dependencies
-      - run: cargo build --target x86_64-unknown-linux-gnu
+      - run: cargo build --release --target x86_64-unknown-linux-gnu
       - name: Save cached cargo dependencies
         id: cache-project-dependencies-restore
         uses: actions/cache/save@v4
