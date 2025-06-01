@@ -162,6 +162,7 @@ async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery)
             );
             match handler.call_args(vec![jsuser]) {
                 Ok(v) => {
+                    info!("Ok branch, got value: {v:?}");
                     if v.is_bool() {
                         v.to_bool().unwrap_or(true)
                     } else if v.is_int() {
