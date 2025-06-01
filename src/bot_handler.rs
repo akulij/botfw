@@ -1,5 +1,5 @@
 use log::{error, info};
-use quickjs_rusty::serde::to_js;
+use quickjs_rusty::{serde::to_js, utils::get_exception};
 use std::{
     str::FromStr,
     sync::{Arc, Mutex, RwLock},
@@ -162,7 +162,13 @@ async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery)
             );
             match handler.call_args(vec![]) {
                 Ok(v) => {
-                    println!("Ok branch, value: {:?}", v.js_to_string());
+                    // let ctx = quickjs_rusty::Context::from(value)
+                    println!("Ok branch, value: {:?}", v);
+                    if v.is_exception() {
+                        let e = get_exception(v.context());
+                        println!("Exception: {e:?}");
+                    }
+
                     if v.is_bool() {
                         v.to_bool().unwrap_or(true)
                     } else if v.is_int() {
