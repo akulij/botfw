@@ -1,4 +1,10 @@
-use std::{collections::HashMap, future::Future, sync::RwLock, thread::JoinHandle, time::Duration};
+use std::{
+    collections::HashMap,
+    future::Future,
+    sync::{Arc, RwLock},
+    thread::JoinHandle,
+    time::Duration,
+};
 
 use lazy_static::lazy_static;
 use log::{error, info};
@@ -13,7 +19,7 @@ use crate::{
     bot_handler::{script_handler, BotHandler},
     db::{bots::BotInstance, DbError, DB},
     mongodb_storage::MongodbStorage,
-    BotController, BotError, BotResult,
+    BotController, BotError, BotResult, BotRuntime,
 };
 
 pub struct BotRunner {
@@ -114,9 +120,11 @@ where
                     Some(thread) => Some(thread),
                     None => {
                         let handlers = (self.h_mapper)(bi.clone()).await;
-                        let handler =
-                            script_handler_gen(bot_runner.controller.clone(), handlers.collect())
-                                .await;
+                        let handler = script_handler_gen(
+                            bot_runner.controller.runtime.clone(),
+                            handlers.collect(),
+                        )
+                        .await;
                         Some(
                             spawn_bot_thread(
                                 bot_runner.controller.bot.clone(),
@@ -143,7 +151,7 @@ where
         let db = db.clone().with_name(bi.name.clone());
         let controller = BotController::with_db(db.clone(), &bi.token, &bi.script).await?;
 
-        let handler = script_handler_gen(controller.clone(), plug_handlers).await;
+        let handler = script_handler_gen(controller.runtime.clone(), plug_handlers).await;
 
         let thread =
             spawn_bot_thread(controller.bot.clone(), controller.db.clone(), handler).await?;
@@ -163,8 +171,8 @@ where
     }
 }
 
-async fn script_handler_gen(c: BotController, plug_handlers: Vec<BotHandler>) -> BotHandler {
-    let handler = script_handler(c.rc.clone());
+async fn script_handler_gen(r: Arc<BotRuntime>, plug_handlers: Vec<BotHandler>) -> BotHandler {
+    let handler = script_handler(r.clone());
     // each handler will be added to dptree::entry()
     let handler = plug_handlers
         .into_iter()
@@ -182,7 +190,7 @@ pub async fn start_bot(
     let db = db.clone().with_name(bi.name.clone());
     let controller = BotController::with_db(db.clone(), &bi.token, &bi.script).await?;
 
-    let handler = script_handler(controller.rc.clone());
+    let handler = script_handler(controller.runtime.clone());
     // each handler will be added to dptree::entry()
     let handler = plug_handlers
         .into_iter()

@@ -17,14 +17,14 @@ use crate::{
     commands::BotCommand,
     db::{CallDB, DB},
     message_answerer::MessageAnswerer,
-    update_user_tg, BotError, BotResult,
+    update_user_tg, BotError, BotResult, BotRuntime,
 };
 
 pub type BotHandler =
     Handler<'static, DependencyMap, BotResult<()>, teloxide::dispatching::DpHandlerDescription>;
 
-pub fn script_handler(rc: Arc<RwLock<RunnerConfig>>) -> BotHandler {
-    let crc = rc.clone();
+pub fn script_handler(r: Arc<BotRuntime>) -> BotHandler {
+    let cr = r.clone();
     dptree::entry()
         .branch(
             Update::filter_message()
@@ -32,10 +32,10 @@ pub fn script_handler(rc: Arc<RwLock<RunnerConfig>>) -> BotHandler {
                 .filter_map(|m: Message| m.text().and_then(|t| BotCommand::from_str(t).ok()))
                 // check if command is presented in config
                 .filter_map(move |bc: BotCommand| {
-                    let rc = std::sync::Arc::clone(&rc);
+                    let r = std::sync::Arc::clone(&r);
                     let command = bc.command();
 
-                    let rc = rc.read().expect("RwLock lock on commands map failed");
+                    let rc = r.rc.lock().expect("RwLock lock on commands map failed");
 
                     rc.get_command_message(command)
                 })
@@ -45,8 +45,8 @@ pub fn script_handler(rc: Arc<RwLock<RunnerConfig>>) -> BotHandler {
             Update::filter_callback_query()
                 .filter_map(move |q: CallbackQuery| {
                     q.data.and_then(|data| {
-                        let rc = std::sync::Arc::clone(&crc);
-                        let rc = rc.read().expect("RwLock lock on commands map failed");
+                        let r = std::sync::Arc::clone(&cr);
+                        let rc = r.rc.lock().expect("RwLock lock on commands map failed");
 
                         rc.get_callback_message(&data)
                     })
