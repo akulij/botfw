@@ -2,7 +2,7 @@ use log::{error, info};
 use quickjs_rusty::serde::to_js;
 use std::{
     str::FromStr,
-    sync::{Arc, RwLock},
+    sync::{Arc, Mutex, RwLock},
 };
 use teloxide::{
     dispatching::{dialogue::GetChatId, UpdateFilterExt},
@@ -23,22 +23,26 @@ use crate::{
 pub type BotHandler =
     Handler<'static, DependencyMap, BotResult<()>, teloxide::dispatching::DpHandlerDescription>;
 
-pub fn script_handler(r: Arc<BotRuntime>) -> BotHandler {
+pub fn script_handler(r: Arc<Mutex<BotRuntime>>) -> BotHandler {
     let cr = r.clone();
     dptree::entry()
         .branch(
             Update::filter_message()
+                .inspect(|m: Message| println!("Call script"))
                 // check if message is command
                 .filter_map(|m: Message| m.text().and_then(|t| BotCommand::from_str(t).ok()))
+                .inspect(|m: Message| println!("Call script"))
                 // check if command is presented in config
                 .filter_map(move |bc: BotCommand| {
                     let r = std::sync::Arc::clone(&r);
                     let command = bc.command();
 
-                    let rc = r.rc.lock().expect("RwLock lock on commands map failed");
+                    let r = r.lock().expect("RwLock lock on commands map failed");
+                    let rc = &r.rc;
 
                     rc.get_command_message(command)
                 })
+                .inspect(|m: Message| println!("Call script"))
                 .endpoint(handle_botmessage),
         )
         .branch(
@@ -46,7 +50,8 @@ pub fn script_handler(r: Arc<BotRuntime>) -> BotHandler {
                 .filter_map(move |q: CallbackQuery| {
                     q.data.and_then(|data| {
                         let r = std::sync::Arc::clone(&cr);
-                        let rc = r.rc.lock().expect("RwLock lock on commands map failed");
+                        let r = r.lock().expect("RwLock lock on commands map failed");
+                        let rc = &r.rc;
 
                         rc.get_callback_message(&data)
                     })

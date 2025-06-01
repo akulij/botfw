@@ -104,24 +104,20 @@ type CallbackStore = CallbackInfo<Callback>;
 pub struct BotController {
     pub bot: Bot,
     pub db: DB,
-    pub runtime: Arc<BotRuntime>,
+    pub runtime: Arc<Mutex<BotRuntime>>,
 }
 
 pub struct BotRuntime {
-    pub rc: Mutex<RunnerConfig>,
+    pub rc: RunnerConfig,
     pub runner: Runner,
 }
-
 unsafe impl Send for BotRuntime {}
-unsafe impl Sync for BotRuntime {}
 
 impl Drop for BotController {
     fn drop(&mut self) {
         info!("called drop for BotController");
     }
 }
-
-unsafe impl Send for BotController {}
 
 const MAIN_BOT_SCRIPT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/mainbot.js"));
 
@@ -148,10 +144,7 @@ impl BotController {
         let mut runner = Runner::init_with_db(&mut db)?;
         runner.call_attacher(|c, o| attach_user_application(c, o, &db, &bot))??;
         let rc = runner.init_config(script)?;
-        let runtime = Arc::new(BotRuntime {
-            rc: Mutex::new(rc),
-            runner,
-        });
+        let runtime = Arc::new(Mutex::new(BotRuntime { rc, runner }));
 
         Ok(Self { bot, db, runtime })
     }

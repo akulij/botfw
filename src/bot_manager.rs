@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     future::Future,
-    sync::{Arc, RwLock},
+    sync::{Arc, Mutex, RwLock},
     thread::JoinHandle,
     time::Duration,
 };
@@ -14,6 +14,7 @@ use teloxide::{
     prelude::{Dispatcher, Requester},
     Bot,
 };
+use tokio::runtime::Handle;
 
 use crate::{
     bot_handler::{script_handler, BotHandler},
@@ -28,16 +29,9 @@ pub struct BotRunner {
     thread: Option<JoinHandle<BotResult<()>>>,
 }
 
-unsafe impl Sync for BotRunner {}
-unsafe impl Send for BotRunner {}
-
 #[derive(Clone)]
 pub struct BotInfo {
     pub name: String,
-}
-
-lazy_static! {
-    static ref BOT_POOL: RwLock<HashMap<String, BotRunner>> = RwLock::new(HashMap::new());
 }
 
 pub static DEFAULT_SCRIPT: &str =
@@ -171,7 +165,10 @@ where
     }
 }
 
-async fn script_handler_gen(r: Arc<BotRuntime>, plug_handlers: Vec<BotHandler>) -> BotHandler {
+async fn script_handler_gen(
+    r: Arc<Mutex<BotRuntime>>,
+    plug_handlers: Vec<BotHandler>,
+) -> BotHandler {
     let handler = script_handler(r.clone());
     // each handler will be added to dptree::entry()
     let handler = plug_handlers
@@ -180,48 +177,6 @@ async fn script_handler_gen(r: Arc<BotRuntime>, plug_handlers: Vec<BotHandler>) 
         .chain(std::iter::once(handler))
         .fold(dptree::entry(), |h, plug| h.branch(plug));
     handler
-}
-
-pub async fn start_bot(
-    bi: BotInstance,
-    db: &mut DB,
-    plug_handlers: Vec<BotHandler>,
-) -> BotResult<BotInfo> {
-    let db = db.clone().with_name(bi.name.clone());
-    let controller = BotController::with_db(db.clone(), &bi.token, &bi.script).await?;
-
-    let handler = script_handler(controller.runtime.clone());
-    // each handler will be added to dptree::entry()
-    let handler = plug_handlers
-        .into_iter()
-        // as well as the script handler at the end
-        .chain(std::iter::once(handler))
-        .fold(dptree::entry(), |h, plug| h.branch(plug));
-
-    let thread = spawn_bot_thread(controller.bot.clone(), controller.db.clone(), handler).await?;
-
-    let info = BotInfo {
-        name: bi.name.clone(),
-    };
-    let runner = BotRunner {
-        controller,
-        info: info.clone(),
-        thread: Some(thread),
-    };
-
-    BOT_POOL
-        .write()
-        .map_or_else(
-            |err| {
-                Err(BotError::RwLockError(format!(
-                    "Failed to lock BOT_POOL because previous thread paniced, err: {err}"
-                )))
-            },
-            Ok,
-        )?
-        .insert(bi.name.clone(), runner);
-
-    Ok(info)
 }
 
 pub async fn spawn_bot_thread(
@@ -235,9 +190,10 @@ pub async fn spawn_bot_thread(
     let thread = std::thread::spawn(move || -> BotResult<()> {
         let state_mgr = state_mgr;
 
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()?;
+        // let rt = tokio::runtime::Builder::new_current_thread()
+        //     .enable_all()
+        //     .build()?;
+        let rt = tokio::runtime::Runtime::new().unwrap();
 
         rt.block_on(
             Dispatcher::builder(bot, handler)
