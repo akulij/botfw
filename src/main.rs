@@ -108,6 +108,12 @@ pub struct BotController {
     pub runner: Runner,
 }
 
+impl Drop for BotController {
+    fn drop(&mut self) {
+        info!("called drop for BotController");
+    }
+}
+
 unsafe impl Send for BotController {}
 
 const MAIN_BOT_SCRIPT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/mainbot.js"));
