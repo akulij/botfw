@@ -1,3 +1,4 @@
+use git_const::git_hash;
 use itertools::Itertools;
 use teloxide::{
     prelude::*,
@@ -44,6 +45,8 @@ pub enum AdminCommands {
     Cancel,
     /// Create new instance of telegram bot
     Deploy { token: String },
+    /// Get commit hash of this bot
+    Commit,
 }
 
 pub async fn admin_command_handler(
@@ -187,6 +190,12 @@ pub async fn admin_command_handler(
                 format!("Deployed bot with name: {}", bot_instance.name),
             )
             .await?;
+            Ok(())
+        }
+        AdminCommands::Commit => {
+            let hash = git_hash!();
+            bot.send_message(msg.chat.id, format!("Commit: {hash}"))
+                .await?;
             Ok(())
         }
     }
