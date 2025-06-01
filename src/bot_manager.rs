@@ -118,9 +118,13 @@ where
                             script_handler_gen(bot_runner.controller.clone(), handlers.collect())
                                 .await;
                         Some(
-                            spawn_bot_thread(bot_runner.controller.clone(), db, handler)
-                                .await
-                                .unwrap(),
+                            spawn_bot_thread(
+                                bot_runner.controller.bot.clone(),
+                                bot_runner.controller.db.clone(),
+                                handler,
+                            )
+                            .await
+                            .unwrap(),
                         )
                     }
                 };
@@ -136,12 +140,13 @@ where
         db: &mut DB,
         plug_handlers: Vec<BotHandler>,
     ) -> BotResult<BotInfo> {
-        let mut db = db.clone().with_name(bi.name.clone());
+        let db = db.clone().with_name(bi.name.clone());
         let controller = BotController::with_db(db.clone(), &bi.token, &bi.script).await?;
 
         let handler = script_handler_gen(controller.clone(), plug_handlers).await;
 
-        let thread = spawn_bot_thread(controller.clone(), &mut db, handler).await?;
+        let thread =
+            spawn_bot_thread(controller.bot.clone(), controller.db.clone(), handler).await?;
 
         let info = BotInfo {
             name: bi.name.clone(),
@@ -174,7 +179,7 @@ pub async fn start_bot(
     db: &mut DB,
     plug_handlers: Vec<BotHandler>,
 ) -> BotResult<BotInfo> {
-    let mut db = db.clone().with_name(bi.name.clone());
+    let db = db.clone().with_name(bi.name.clone());
     let controller = BotController::with_db(db.clone(), &bi.token, &bi.script).await?;
 
     let handler = script_handler(controller.rc.clone());
@@ -185,7 +190,7 @@ pub async fn start_bot(
         .chain(std::iter::once(handler))
         .fold(dptree::entry(), |h, plug| h.branch(plug));
 
-    let thread = spawn_bot_thread(controller.clone(), &mut db, handler).await?;
+    let thread = spawn_bot_thread(controller.bot.clone(), controller.db.clone(), handler).await?;
 
     let info = BotInfo {
         name: bi.name.clone(),
@@ -212,11 +217,11 @@ pub async fn start_bot(
 }
 
 pub async fn spawn_bot_thread(
-    bc: BotController,
-    db: &mut DB,
+    bot: Bot,
+    mut db: DB,
     handler: BotHandler,
 ) -> BotResult<JoinHandle<BotResult<()>>> {
-    let state_mgr = MongodbStorage::from_db(db, Json)
+    let state_mgr = MongodbStorage::from_db(&mut db, Json)
         .await
         .map_err(DbError::from)?;
     let thread = std::thread::spawn(move || -> BotResult<()> {
@@ -227,8 +232,8 @@ pub async fn spawn_bot_thread(
             .build()?;
 
         rt.block_on(
-            Dispatcher::builder(bc.bot, handler)
-                .dependencies(dptree::deps![bc.db, state_mgr])
+            Dispatcher::builder(bot, handler)
+                .dependencies(dptree::deps![db, state_mgr])
                 .build()
                 .dispatch(),
         );
