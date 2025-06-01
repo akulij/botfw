@@ -115,8 +115,7 @@ where
                     None => {
                         let handlers = (self.h_mapper)(bi.clone()).await;
                         let handler =
-                            script_handler_gen(bot_runner.controller.clone(), handlers.collect())
-                                .await;
+                            script_handler_gen(&bot_runner.controller, handlers.collect()).await;
                         Some(
                             spawn_bot_thread(
                                 bot_runner.controller.bot.clone(),
@@ -143,7 +142,7 @@ where
         let db = db.clone().with_name(bi.name.clone());
         let controller = BotController::with_db(db.clone(), &bi.token, &bi.script).await?;
 
-        let handler = script_handler_gen(controller.clone(), plug_handlers).await;
+        let handler = script_handler_gen(&controller, plug_handlers).await;
 
         let thread =
             spawn_bot_thread(controller.bot.clone(), controller.db.clone(), handler).await?;
@@ -163,7 +162,7 @@ where
     }
 }
 
-async fn script_handler_gen(c: BotController, plug_handlers: Vec<BotHandler>) -> BotHandler {
+async fn script_handler_gen(c: &BotController, plug_handlers: Vec<BotHandler>) -> BotHandler {
     let handler = script_handler(c.rc.clone());
     // each handler will be added to dptree::entry()
     let handler = plug_handlers
