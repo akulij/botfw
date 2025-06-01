@@ -1470,7 +1470,7 @@ dependencies = [
 [[package]]
 name = "libquickjs-ng-sys"
 version = "0.9.0"
-source = "git+https://github.com/akulij/quickjs-rusty.git#a7529d4a6523b28ca7402bbd8d0373010de6cdb7"
+source = "git+https://github.com/akulij/quickjs-rusty.git?rev=8c89aeb#8c89aeb802965ac5b00be00197a9a3a3faefd3b9"
 dependencies = [
  "bindgen",
  "cc",
@@ -2015,7 +2015,7 @@ dependencies = [
 [[package]]
 name = "quickjs-rusty"
 version = "0.9.0"
-source = "git+https://github.com/akulij/quickjs-rusty.git#a7529d4a6523b28ca7402bbd8d0373010de6cdb7"
+source = "git+https://github.com/akulij/quickjs-rusty.git?rev=8c89aeb#8c89aeb802965ac5b00be00197a9a3a3faefd3b9"
 dependencies = [
  "anyhow",
  "chrono",
