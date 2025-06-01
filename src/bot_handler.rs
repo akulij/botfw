@@ -28,10 +28,8 @@ pub fn script_handler(r: Arc<Mutex<BotRuntime>>) -> BotHandler {
     dptree::entry()
         .branch(
             Update::filter_message()
-                .inspect(|m: Message| println!("Call script"))
                 // check if message is command
                 .filter_map(|m: Message| m.text().and_then(|t| BotCommand::from_str(t).ok()))
-                .inspect(|m: Message| println!("Call script"))
                 // check if command is presented in config
                 .filter_map(move |bc: BotCommand| {
                     let r = std::sync::Arc::clone(&r);
@@ -42,7 +40,6 @@ pub fn script_handler(r: Arc<Mutex<BotRuntime>>) -> BotHandler {
 
                     rc.get_command_message(command)
                 })
-                .inspect(|m: Message| println!("Call script"))
                 .endpoint(handle_botmessage),
         )
         .branch(
@@ -162,7 +159,7 @@ async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery)
             );
             match handler.call_args(vec![jsuser]) {
                 Ok(v) => {
-                    info!("Ok branch, got value: {v:?}");
+                    println!("Ok branch, got value: {v:?}");
                     if v.is_bool() {
                         v.to_bool().unwrap_or(true)
                     } else if v.is_int() {
