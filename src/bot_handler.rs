@@ -155,7 +155,7 @@ async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery)
                 handler,
                 bm.literal()
             );
-            match handler.call_args(vec![jsuser]) {
+            match handler.call_args(vec![]) {
                 Ok(v) => {
                     println!("Ok branch, value: {:?}", v.js_to_string());
                     if v.is_bool() {
