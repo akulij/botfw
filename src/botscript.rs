@@ -604,12 +604,13 @@ impl Parcelable<BotFunction> for BotDialog {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
 pub enum NotificationTime {
-    Delta(Duration),
+    Delta(isize),
     Specific(SpecificTime),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(try_from = "SpecificTimeFormat")]
 pub struct SpecificTime {
     hour: u8,
@@ -645,18 +646,27 @@ impl TryFrom<SpecificTimeFormat> for SpecificTime {
 }
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
+#[serde(untagged)]
 pub enum NotificationFilter {
     #[default]
+    #[serde(rename = "all")]
     All,
     /// Send to randomly selected N people
-    Random(usize),
+    Random { random: u8 },
     /// Function that returns list of user id's who should get notification
     BotFunction(BotFunction),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
 pub enum NotificationMessage {
-    Literal(String),
+    Literal {
+        literal: String,
+    },
+    Text {
+        text: String,
+    },
+    /// Function can accept user which will be notified and then return generated message
     BotFunction(BotFunction),
 }
 
