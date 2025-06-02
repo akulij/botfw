@@ -893,4 +893,35 @@ mod tests {
             }
         );
     }
+
+    #[test]
+    fn test_notification_time() {
+        let botn = json!({
+            "time": "18:00",
+            "filter": {"random": 2},
+            "message": {"text": "some"},
+        });
+        let n: BotNotification = serde_json::from_value(botn).unwrap();
+        println!("BotNotification: {n:#?}");
+        let start_time = chrono::offset::Utc::now();
+        // let start_time = chrono::offset::Utc::now() + TimeDelta::try_hours(5).unwrap();
+        let start_time = start_time.with_hour(13).unwrap().with_minute(23).unwrap();
+        let left = n.left_time(&start_time, &start_time);
+        let secs = left.as_secs();
+        let minutes = secs / 60;
+        let hours = minutes / 60;
+        let minutes = minutes % 60;
+        println!("Left: {hours}:{minutes}");
+
+        let when_should = chrono::offset::Utc::now()
+            .with_hour(18)
+            .unwrap()
+            .with_minute(00)
+            .unwrap();
+
+        let should_left = (when_should - start_time).to_std().unwrap();
+        let should_left = Duration::from_secs(should_left.as_secs());
+
+        assert_eq!(left, should_left)
+    }
 }
