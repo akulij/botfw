@@ -625,12 +625,10 @@ impl NotificationTime {
                 delta_minutes,
             } => {
                 let delta = TimeDelta::minutes((delta_minutes + delta_hours * 60).into());
-                println!("Delta: {delta}");
 
                 let mut estimation = *start_time;
                 // super non-optimal, but fun :)
                 loop {
-                    println!("Adding delta to estimation");
                     if estimation < now + Duration::from_secs(1) {
                         estimation += delta;
                     } else {
@@ -807,7 +805,6 @@ impl BotNotification {
         // immidate notification if time to do it passed
         let duration = (next - now).to_std().unwrap_or(Duration::from_secs(1));
 
-        println!("Left time: {duration:?}");
         // Rounding partitions of seconds
         Duration::from_secs(duration.as_secs())
     }
@@ -890,7 +887,6 @@ impl RunnerConfig {
             .filter(|f| f.left_time(&start_time, &now) > Duration::from_secs(1))
             .sorted_by_key(|f| f.left_time(&start_time, &now))
             .collect::<Vec<_>>();
-        println!("Orederd: {:#?}", ordered);
 
         let left = match ordered.first() {
             Some(notification) => notification.left_time(&start_time, &now),

@@ -157,7 +157,6 @@ where
 
         let thread =
             spawn_bot_thread(controller.bot.clone(), controller.db.clone(), handler).await?;
-        println!("Starting notificator");
         let notificator = spawn_notificator_thread(controller.clone()).await?;
         let notificator = NotificatorThread::Running(Some(notificator));
 
@@ -235,8 +234,6 @@ pub async fn spawn_notificator_thread(
                 match notifications {
                     Some(n) => {
                         // waiting time to send notification
-                        println!("Will send notification after {:?}", n.wait_for());
-                        println!("Notifications: {:#?}", n.notifications());
                         tokio::time::sleep(n.wait_for()).await;
                         'n: for n in n.notifications().into_iter() {
                             for user in n.get_users(&c.db).await?.into_iter() {
