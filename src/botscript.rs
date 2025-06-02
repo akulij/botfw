@@ -790,6 +790,7 @@ impl Runner {
 #[allow(clippy::print_stdout)]
 mod tests {
     use quickjs_rusty::{serde::from_js, OwnedJsObject};
+    use serde_json::json;
 
     use super::*;
 
@@ -867,5 +868,29 @@ mod tests {
         if errstr != "ReferenceError: invalid_script is not defined" {
             panic!("test returned an error, but the wrong one, {errstr}")
         }
+    }
+
+    #[test]
+    fn test_notification_struct() {
+        let botn = json!({
+            "time": "18:00",
+            "filter": {"random": 2},
+            "message": {"text": "some"},
+        });
+        let n: BotNotification = serde_json::from_value(botn).unwrap();
+        println!("BotNotification: {n:#?}");
+        assert!(matches!(n.time, NotificationTime::Specific(..)));
+        let time = if let NotificationTime::Specific(st) = n.time {
+            st
+        } else {
+            unreachable!()
+        };
+        assert_eq!(
+            time,
+            SpecificTime {
+                hour: 18,
+                minutes: 00
+            }
+        );
     }
 }
