@@ -11,6 +11,7 @@ use chrono::{DateTime, Utc};
 use enum_stringify::EnumStringify;
 use futures::stream::TryStreamExt;
 
+use futures::StreamExt;
 use mongodb::options::IndexOptions;
 use mongodb::{bson::doc, options::ClientOptions, Client};
 use mongodb::{Collection, Database, IndexModel};
@@ -212,6 +213,10 @@ impl CallDB for DB {
     async fn get_database(&mut self) -> Database {
         self.client.database(&self.name)
     }
+
+    async fn get_database_immut(&self) -> Database {
+        self.client.database(&self.name)
+    }
 }
 
 impl<T: CallDB> GetCollection for T {
@@ -226,6 +231,8 @@ impl<T: CallDB> GetCollection for T {
 pub enum DbError {
     #[error("error while processing mongodb query: {0}")]
     MongodbError(#[from] mongodb::error::Error),
+    #[error("error while coverting values: {0}")]
+    SerdeJsonError(#[from] serde_json::error::Error),
 }
 pub type DbResult<T> = Result<T, DbError>;
 
@@ -233,12 +240,33 @@ pub type DbResult<T> = Result<T, DbError>;
 pub trait CallDB {
     //type C;
     async fn get_database(&mut self) -> Database;
+    async fn get_database_immut(&self) -> Database;
     //async fn get_pool(&mut self) -> PooledConnection<'_, AsyncDieselConnectionManager<C>>;
-    async fn get_users(&mut self) -> DbResult<Vec<User>> {
-        let db = self.get_database().await;
+    async fn get_users(&self) -> DbResult<Vec<User>> {
+        let db = self.get_database_immut().await;
         let users = db.collection::<User>("users");
 
         Ok(users.find(doc! {}).await?.try_collect().await?)
+    }
+
+    async fn get_random_users(&self, n: u32) -> DbResult<Vec<User>> {
+        let db = self.get_database_immut().await;
+        let users = db.collection::<User>("users");
+
+        let random_users: Vec<bson::Document> = users
+            .aggregate(vec![doc! {"$sample": {"size": n}}])
+            .await?
+            .try_collect()
+            .await?;
+        let random_users = random_users
+            .into_iter()
+            .map(|d| match serde_json::to_value(d) {
+                Ok(value) => serde_json::from_value::<User>(value),
+                Err(err) => Err(err),
+            })
+            .collect::<Result<_, _>>()?;
+
+        Ok(random_users)
     }
 
     async fn set_admin(&mut self, userid: i64, isadmin: bool) -> DbResult<()> {
@@ -350,8 +378,8 @@ pub trait CallDB {
         Ok(())
     }
 
-    async fn get_literal(&mut self, literal: &str) -> DbResult<Option<Literal>> {
-        let db = self.get_database().await;
+    async fn get_literal(&self, literal: &str) -> DbResult<Option<Literal>> {
+        let db = self.get_database_immut().await;
         let messages = db.collection::<Literal>("literals");
 
         let literal = messages.find_one(doc! { "token": literal }).await?;
@@ -359,7 +387,7 @@ pub trait CallDB {
         Ok(literal)
     }
 
-    async fn get_literal_value(&mut self, literal: &str) -> DbResult<Option<String>> {
+    async fn get_literal_value(&self, literal: &str) -> DbResult<Option<String>> {
         let literal = self.get_literal(literal).await?;
 
         Ok(literal.map(|l| l.value))

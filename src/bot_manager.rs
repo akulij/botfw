@@ -12,6 +12,7 @@ use teloxide::{
     dispatching::dialogue::serializer::Json,
     dptree,
     prelude::{Dispatcher, Requester},
+    types::{ChatId, UserId},
     Bot,
 };
 use tokio::runtime::Handle;
@@ -19,6 +20,7 @@ use tokio::runtime::Handle;
 use crate::{
     bot_handler::{script_handler, BotHandler},
     db::{bots::BotInstance, DbError, DB},
+    message_answerer::MessageAnswerer,
     mongodb_storage::MongodbStorage,
     BotController, BotError, BotResult, BotRuntime,
 };
@@ -26,7 +28,13 @@ use crate::{
 pub struct BotRunner {
     controller: BotController,
     info: BotInfo,
+    notificator: NotificatorThread,
     thread: Option<JoinHandle<BotResult<()>>>,
+}
+
+pub enum NotificatorThread {
+    Running(Option<JoinHandle<BotResult<()>>>),
+    Done,
 }
 
 #[derive(Clone)]
@@ -149,6 +157,8 @@ where
 
         let thread =
             spawn_bot_thread(controller.bot.clone(), controller.db.clone(), handler).await?;
+        let notificator = spawn_notificator_thread(controller.clone()).await?;
+        let notificator = NotificatorThread::Running(Some(notificator));
 
         let info = BotInfo {
             name: bi.name.clone(),
@@ -156,6 +166,7 @@ where
         let runner = BotRunner {
             controller,
             info: info.clone(),
+            notificator,
             thread: Some(thread),
         };
 
@@ -203,6 +214,43 @@ pub async fn spawn_bot_thread(
         );
 
         Ok(())
+    });
+
+    Ok(thread)
+}
+
+pub async fn spawn_notificator_thread(
+    mut c: BotController,
+) -> BotResult<JoinHandle<BotResult<()>>> {
+    let thread = std::thread::spawn(move || -> BotResult<()> {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+
+        rt.block_on(async {
+            loop {
+                let r = c.runtime.lock().unwrap();
+                let notifications = r.rc.get_nearest_notifications();
+                drop(r); // unlocking mutex
+
+                match notifications {
+                    Some(n) => {
+                        // waiting time to send notification
+                        tokio::time::sleep(n.wait_for()).await;
+                        'n: for n in n.notifications().into_iter() {
+                            for user in n.get_users(&c.db).await?.into_iter() {
+                                let text = match n.resolve_message(&c.db, &user).await? {
+                                    Some(text) => text,
+                                    None => continue 'n,
+                                };
+
+                                let ma = MessageAnswerer::new(&c.bot, &mut c.db, user.id);
+                                ma.answer_text(text.clone(), None).await?;
+                            }
+                        }
+                    }
+                    None => break Ok(()),
+                }
+            }
+        })
     });
 
     Ok(thread)

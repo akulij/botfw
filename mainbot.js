@@ -76,8 +76,16 @@ print(JSON.stringify(dialog.buttons))
 
 const config = {
     version: 1.1,
+    timezone: 3,
 }
 
+const notifications = [
+    // {
+    //     time: "18:14",
+    //     message: {literal: "show_projects"},
+    // },
+]
+
 // {config, dialog}
-const c = { config: config, dialog: dialog }
+const c = { config: config, dialog: dialog, notifications: notifications }
 c
