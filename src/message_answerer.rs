@@ -86,6 +86,14 @@ impl<'a> MessageAnswerer<'a> {
         self.answer_inner(text, literal, variant, keyboard).await
     }
 
+    pub async fn answer_text(
+        self,
+        text: String,
+        keyboard: Option<InlineKeyboardMarkup>,
+    ) -> BotResult<(i64, i32)> {
+        self.send_message(text, keyboard).await
+    }
+
     async fn answer_inner(
         mut self,
         text: String,
