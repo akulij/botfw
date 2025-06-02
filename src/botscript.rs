@@ -2,10 +2,12 @@ pub mod application;
 pub mod db;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, PoisonError};
+use std::time::Duration;
 
 use crate::db::raw_calls::RawCallError;
 use crate::db::{CallDB, DbError, DB};
 use crate::utils::parcelable::{ParcelType, Parcelable, ParcelableError, ParcelableResult};
+use chrono::{NaiveTime, ParseError, Timelike};
 use db::attach_db_obj;
 use futures::future::join_all;
 use futures::lock::MutexGuard;
@@ -269,6 +271,10 @@ fn print(s: String) {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BotConfig {
     version: f64,
+    /// relative to UTC, for e.g.,
+    /// timezone = 3 will be UTC+3,
+    /// timezone =-2 will be UTC-2,
+    timezone: i8,
 }
 
 pub trait ResolveValue {
@@ -598,9 +604,76 @@ impl Parcelable<BotFunction> for BotDialog {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum NotificationTime {
+    Delta(Duration),
+    Specific(SpecificTime),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(try_from = "SpecificTimeFormat")]
+pub struct SpecificTime {
+    hour: u8,
+    minutes: u8,
+}
+
+impl SpecificTime {
+    pub fn new(hour: u8, minutes: u8) -> Self {
+        Self { hour, minutes }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum SpecificTimeFormat {
+    Verbose(SpecificTime),
+    String(String),
+}
+
+impl TryFrom<SpecificTimeFormat> for SpecificTime {
+    type Error = ParseError;
+
+    fn try_from(stf: SpecificTimeFormat) -> Result<Self, Self::Error> {
+        match stf {
+            SpecificTimeFormat::Verbose(specific_time) => Ok(specific_time),
+            SpecificTimeFormat::String(timestring) => {
+                let time: NaiveTime = timestring.parse()?;
+
+                Ok(SpecificTime::new(time.hour() as u8, time.minute() as u8))
+            }
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
+pub enum NotificationFilter {
+    #[default]
+    All,
+    /// Send to randomly selected N people
+    Random(usize),
+    /// Function that returns list of user id's who should get notification
+    BotFunction(BotFunction),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum NotificationMessage {
+    Literal(String),
+    BotFunction(BotFunction),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BotNotification {
+    time: NotificationTime,
+    #[serde(default)]
+    filter: NotificationFilter,
+    message: NotificationMessage,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RunnerConfig {
     config: BotConfig,
     pub dialog: BotDialog,
+    #[serde(default)]
+    notifications: Vec<BotNotification>,
 }
 
 impl RunnerConfig {
