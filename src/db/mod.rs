@@ -11,6 +11,7 @@ use chrono::{DateTime, Utc};
 use enum_stringify::EnumStringify;
 use futures::stream::TryStreamExt;
 
+use futures::StreamExt;
 use mongodb::options::IndexOptions;
 use mongodb::{bson::doc, options::ClientOptions, Client};
 use mongodb::{Collection, Database, IndexModel};
@@ -230,6 +231,8 @@ impl<T: CallDB> GetCollection for T {
 pub enum DbError {
     #[error("error while processing mongodb query: {0}")]
     MongodbError(#[from] mongodb::error::Error),
+    #[error("error while coverting values: {0}")]
+    SerdeJsonError(#[from] serde_json::error::Error),
 }
 pub type DbResult<T> = Result<T, DbError>;
 
@@ -244,6 +247,26 @@ pub trait CallDB {
         let users = db.collection::<User>("users");
 
         Ok(users.find(doc! {}).await?.try_collect().await?)
+    }
+
+    async fn get_random_users(&self, n: u32) -> DbResult<Vec<User>> {
+        let db = self.get_database_immut().await;
+        let users = db.collection::<User>("users");
+
+        let random_users: Vec<bson::Document> = users
+            .aggregate(vec![doc! {"$sample": {"size": n}}])
+            .await?
+            .try_collect()
+            .await?;
+        let random_users = random_users
+            .into_iter()
+            .map(|d| match serde_json::to_value(d) {
+                Ok(value) => serde_json::from_value::<User>(value),
+                Err(err) => Err(err),
+            })
+            .collect::<Result<_, _>>()?;
+
+        Ok(random_users)
     }
 
     async fn set_admin(&mut self, userid: i64, isadmin: bool) -> DbResult<()> {
