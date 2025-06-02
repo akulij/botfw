@@ -50,7 +50,7 @@ pub async fn create_callback_button<C, D>(
 ) -> BotResult<InlineKeyboardButton>
 where
     C: Serialize + for<'a> Deserialize<'a> + Send + Sync,
-    D: CallDB + Send,
+    D: CallDB + Send + Sync,
 {
     let text = db
         .get_literal_value(literal)
