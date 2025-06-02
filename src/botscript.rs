@@ -625,8 +625,8 @@ impl SpecificTime {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum SpecificTimeFormat {
-    Verbose(SpecificTime),
     String(String),
+    Verbose { hour: u8, minutes: u8 },
 }
 
 impl TryFrom<SpecificTimeFormat> for SpecificTime {
@@ -634,11 +634,11 @@ impl TryFrom<SpecificTimeFormat> for SpecificTime {
 
     fn try_from(stf: SpecificTimeFormat) -> Result<Self, Self::Error> {
         match stf {
-            SpecificTimeFormat::Verbose(specific_time) => Ok(specific_time),
+            SpecificTimeFormat::Verbose { hour, minutes } => Ok(Self::new(hour, minutes)),
             SpecificTimeFormat::String(timestring) => {
                 let time: NaiveTime = timestring.parse()?;
 
-                Ok(SpecificTime::new(time.hour() as u8, time.minute() as u8))
+                Ok(Self::new(time.hour() as u8, time.minute() as u8))
             }
         }
     }
