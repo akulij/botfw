@@ -1,3 +1,4 @@
+use build_time::{build_time_local, build_time_utc};
 use git_const::git_hash;
 use itertools::Itertools;
 use teloxide::{
@@ -194,8 +195,15 @@ pub async fn admin_command_handler(
         }
         AdminCommands::Commit => {
             let hash = git_hash!();
-            bot.send_message(msg.chat.id, format!("Commit: {hash}"))
-                .await?;
+            let built_utc = build_time_utc!("%H:%M %d.%m.%Y");
+            let built_local = build_time_local!("%H:%M %d.%m.%Y");
+
+            bot.send_message(
+                msg.chat.id,
+                format!("Commit: {hash}\nBuilt at (UTC): <b>{built_utc}</b>\n Local: <b>{built_local}</b>"),
+            )
+            .parse_mode(teloxide::types::ParseMode::Html)
+            .await?;
             Ok(())
         }
     }
