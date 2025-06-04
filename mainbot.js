@@ -4,9 +4,9 @@ const PROJECTS_COUNT = 2
 
 const start_msg = {
     buttons: [
+        [{ name: { literal: "leave_application" }, callback_name: "leave_application" }],
         [{ name: { literal: "show_projects" }, callback_name: "project_0" }],
         [{ name: { literal: "more_info_btn" }, callback_name: "more_info" }],
-        [{ name: { literal: "leave_application" }, callback_name: "leave_application" }],
         [{ name: { literal: "ask_question_btn" }, callback_name: "ask_question" }],
     ], // default is `null`
     replace: true,
@@ -18,8 +18,12 @@ const dialog = {
     },
     buttons: {
         more_info: {
+            replace: true,
             buttons: [
-                [{ name: { name: "На главную" }, callback_name: "start" }],
+                [{ name: { literal: "leave_application" }, callback_name: "leave_application" }],
+                [{ name: { literal: "show_projects" }, callback_name: "project_0" }],
+                [{ name: { literal: "ask_question_btn" }, callback_name: "ask_question" }],
+                [{ name: { name: "🏠 На главную" }, callback_name: "start" }],
             ]
         },
         start: start_msg,

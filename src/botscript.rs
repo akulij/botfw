@@ -1024,8 +1024,6 @@ mod tests {
         println!("config: {:?}", val);
         let d: RunnerConfig = DeserializerJS::deserialize_js(&val).unwrap();
         println!("desr rc: {:?}", d);
-        let val = runner.run_script("start_buttons()").unwrap();
-        println!("Val: {:?}", val.to_string());
     }
 
     #[test]
