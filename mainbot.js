@@ -20,7 +20,7 @@ const dialog = {
         more_info: {
             replace: true,
             buttons: [
-                [{ name: { name: "На главную" }, callback_name: "start" }],
+                [{ name: { name: "🏠 На главную" }, callback_name: "start" }],
             ]
         },
         start: start_msg,
