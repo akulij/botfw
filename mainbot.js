@@ -32,6 +32,7 @@ const dialog = {
             literal: "left_application_msg",
             handler: leave_application
         },
+        free_doc: {},
         ask_question: {}
     },
     stateful_msg_handlers: {
