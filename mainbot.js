@@ -13,7 +13,10 @@ const start_msg = {
 };
 const dialog = {
     commands: {
-        start: start_msg,
+        start: {
+            meta: true,
+            ...start_msg
+        },
     },
     buttons: {
         more_info: {
@@ -39,6 +42,17 @@ const dialog = {
             // manually in handler
             handler: enter_name,
             state: "none"
+        },
+    },
+    variants: {
+        start: {
+            free_tgads: {
+                ...start_msg,
+                buttons: [
+                    [{ name: { literal: "free_doc_btn" }, callback_name: "free_doc" }],
+                    ...start_msg.buttons,
+                ],
+            },
         },
     },
 }
