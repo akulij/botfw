@@ -12,6 +12,7 @@ use enum_stringify::EnumStringify;
 use futures::stream::TryStreamExt;
 
 use futures::StreamExt;
+use mongodb::bson::serde_helpers::chrono_datetime_as_bson_datetime;
 use mongodb::options::IndexOptions;
 use mongodb::{bson::doc, options::ClientOptions, Client};
 use mongodb::{Collection, Database, IndexModel};
@@ -108,7 +109,8 @@ pub struct Message {
     pub message_id: i64,
     pub token: String,
     pub variant: Option<String>,
-    pub created_at: DateTime<FixedOffset>,
+    #[serde(with = "chrono_datetime_as_bson_datetime")]
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -346,7 +348,7 @@ pub trait CallDB {
                 doc! {
                     "$set": {
                         "token": literal,
-                        "created_at": Into::<DateTime<FixedOffset>>::into(Local::now()),
+                        "created_at": Into::<DateTime<Utc>>::into(Local::now()),
                     }
                 },
             )
@@ -376,7 +378,7 @@ pub trait CallDB {
                     "$set": {
                         "token": literal,
                         "variant": variant,
-                        "created_at": Into::<DateTime<FixedOffset>>::into(Local::now()),
+                        "created_at": Into::<DateTime<Utc>>::into(Local::now()),
                     }
                 },
             )
