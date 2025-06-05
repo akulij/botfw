@@ -501,6 +501,7 @@ pub struct BotMessage {
 
     /// flag options to command is meta, so it will be appended to user.metas in db
     meta: Option<bool>,
+    #[serde(default)]
     variants: Vec<MessageVariant>,
 
     handler: Option<BotFunction>,
