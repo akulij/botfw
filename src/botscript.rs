@@ -640,6 +640,7 @@ pub struct BotDialog {
     pub commands: HashMap<String, BotMessage>,
     pub buttons: HashMap<String, BotMessage>,
     stateful_msg_handlers: HashMap<String, BotMessage>,
+    #[serde(default)]
     variants: HashMap<String, HashMap<String, BotMessage>>,
 }
 
