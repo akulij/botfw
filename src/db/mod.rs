@@ -7,11 +7,12 @@ pub mod raw_calls;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, FixedOffset, Local, Utc};
 use enum_stringify::EnumStringify;
 use futures::stream::TryStreamExt;
 
 use futures::StreamExt;
+use mongodb::bson::serde_helpers::chrono_datetime_as_bson_datetime;
 use mongodb::options::IndexOptions;
 use mongodb::{bson::doc, options::ClientOptions, Client};
 use mongodb::{Collection, Database, IndexModel};
@@ -108,6 +109,8 @@ pub struct Message {
     pub message_id: i64,
     pub token: String,
     pub variant: Option<String>,
+    #[serde(with = "chrono_datetime_as_bson_datetime")]
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -343,7 +346,10 @@ pub trait CallDB {
                     "message_id": messageid as i64
                 },
                 doc! {
-                    "$set": { "token": literal }
+                    "$set": {
+                        "token": literal,
+                        "created_at": Into::<DateTime<Utc>>::into(Local::now()),
+                    }
                 },
             )
             .upsert(true)
@@ -369,7 +375,11 @@ pub trait CallDB {
                     "message_id": messageid as i64
                 },
                 doc! {
-                    "$set": { "token": literal, "variant": variant }
+                    "$set": {
+                        "token": literal,
+                        "variant": variant,
+                        "created_at": Into::<DateTime<Utc>>::into(Local::now()),
+                    }
                 },
             )
             .upsert(true)

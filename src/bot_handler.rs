@@ -1,5 +1,5 @@
 use log::{error, info};
-use quickjs_rusty::serde::to_js;
+use quickjs_rusty::serde::{from_js, to_js};
 use std::{
     str::FromStr,
     sync::{Arc, Mutex, RwLock},
@@ -13,11 +13,11 @@ use teloxide::{
 };
 
 use crate::{
-    botscript::{self, BotMessage, RunnerConfig},
+    botscript::{self, message_info::MessageInfoBuilder, BotMessage, RunnerConfig},
     commands::BotCommand,
     db::{CallDB, DB},
     message_answerer::MessageAnswerer,
-    update_user_tg, BotError, BotResult, BotRuntime,
+    notify_admin, update_user_tg, BotError, BotResult, BotRuntime,
 };
 
 pub type BotHandler =
@@ -38,7 +38,11 @@ pub fn script_handler(r: Arc<Mutex<BotRuntime>>) -> BotHandler {
                     let r = r.lock().expect("RwLock lock on commands map failed");
                     let rc = &r.rc;
 
-                    rc.get_command_message(command)
+                    // it's not necessary, but avoiding some hashmap lookups
+                    match bc.args() {
+                        Some(variant) => rc.get_command_message_varianted(command, variant),
+                        None => rc.get_command_message(command),
+                    }
                 })
                 .endpoint(handle_botmessage),
         )
@@ -69,6 +73,17 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
     let user = update_user_tg(user, &tguser);
     user.update_user(&mut db).await?;
 
+    let variant = match BotCommand::from_str(msg.text().unwrap_or("")) {
+        Ok(cmd) => cmd.args().map(|m| m.to_string()),
+        Err(_) => None,
+    };
+
+    if bm.meta() == true {
+        if let Some(ref meta) = variant {
+            user.insert_meta(&mut db, meta).await?;
+        };
+    };
+
     let is_propagate: bool = match bm.get_handler() {
         Some(handler) => 'prop: {
             let ctx = match handler.context() {
@@ -77,12 +92,16 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
                 None => break 'prop true,
             };
             let jsuser = to_js(ctx, &tguser).unwrap();
+            let mi = MessageInfoBuilder::new()
+                .set_variant(variant.clone())
+                .build();
+            let mi = to_js(ctx, &mi).unwrap();
             info!(
                 "Calling handler {:?} with msg literal: {:?}",
                 handler,
                 bm.literal()
             );
-            match handler.call_args(vec![jsuser]) {
+            match handler.call_args(vec![jsuser, mi]) {
                 Ok(v) => {
                     if v.is_bool() {
                         v.to_bool().unwrap_or(true)
@@ -129,7 +148,8 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
     let literal = bm.literal().map_or("", |s| s.as_str());
 
     let ma = MessageAnswerer::new(&bot, &mut db, msg.chat.id.0);
-    ma.answer(literal, None, buttons).await?;
+    ma.answer(literal, variant.as_ref().map(|v| v.as_str()), buttons)
+        .await?;
 
     Ok(())
 }
@@ -152,12 +172,14 @@ async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery)
                 None => break 'prop true,
             };
             let jsuser = to_js(ctx, &tguser).unwrap();
+            let mi = MessageInfoBuilder::new().build();
+            let mi = to_js(ctx, &mi).unwrap();
             println!(
                 "Calling handler {:?} with msg literal: {:?}",
                 handler,
                 bm.literal()
             );
-            match handler.call_args(vec![jsuser]) {
+            match handler.call_args(vec![jsuser, mi]) {
                 Ok(v) => {
                     println!("Ok branch, got value: {v:?}");
                     if v.is_bool() {

@@ -1,11 +1,13 @@
 pub mod application;
 pub mod db;
+pub mod message_info;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use crate::db::raw_calls::RawCallError;
 use crate::db::{CallDB, DbError, User, DB};
+use crate::notify_admin;
 use crate::utils::parcelable::{ParcelType, Parcelable, ParcelableError, ParcelableResult};
 use chrono::{DateTime, Days, NaiveTime, ParseError, TimeDelta, Timelike, Utc};
 use db::attach_db_obj;
@@ -476,9 +478,12 @@ impl ButtonName {
 
                 Ok(match value {
                     Some(value) => Ok(value),
-                    None => Err(ResolveError::IncorrectLiteral(format!(
-                        "not found literal `{literal}` in DB"
-                    ))),
+                    None => {
+                        notify_admin(&format!("Literal `{literal}` is not set!!!")).await;
+                        Err(ResolveError::IncorrectLiteral(format!(
+                            "not found literal `{literal}` in DB"
+                        )))
+                    }
                 }?)
             }
         }
@@ -499,15 +504,57 @@ pub struct BotMessage {
     buttons: Option<KeyboardDefinition>,
     state: Option<String>,
 
+    /// flag options to command is meta, so it will be appended to user.metas in db
+    meta: Option<bool>,
+
     handler: Option<BotFunction>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MessageVariant(String);
+
+impl MessageVariant {
+    pub fn get_name(&self) -> &str {
+        &self.0
+    }
+}
+
+impl PartialEq<String> for &MessageVariant {
+    fn eq(&self, other: &String) -> bool {
+        self.0 == *other
+    }
+}
+
+impl PartialEq<&str> for &MessageVariant {
+    fn eq(&self, other: &&str) -> bool {
+        self.0 == *other
+    }
+}
+
 impl BotMessage {
-    pub fn fill_literal(&self, l: String) -> Self {
+    pub fn fill_literal(self, l: String) -> Self {
         BotMessage {
             literal: self.clone().literal.or(Some(l)),
-            ..self.clone()
+            ..self
         }
+    }
+
+    /// chain of modifications on BotMessage
+    pub fn update_defaults(self) -> Self {
+        let bm = self;
+        // if message is `start`, defaulting meta to true, if not set
+        let bm = match bm.meta {
+            Some(_) => bm,
+            None => match &bm.literal {
+                Some(l) if l == "start" => Self {
+                    meta: Some(true),
+                    ..bm
+                },
+                _ => bm,
+            },
+        };
+
+        bm
     }
 
     pub fn is_replace(&self) -> bool {
@@ -516,6 +563,10 @@ impl BotMessage {
 
     pub fn get_handler(&self) -> Option<&BotFunction> {
         self.handler.as_ref()
+    }
+
+    pub fn meta(&self) -> bool {
+        self.meta.unwrap_or(false)
     }
 }
 
@@ -589,6 +640,7 @@ pub struct BotDialog {
     pub commands: HashMap<String, BotMessage>,
     pub buttons: HashMap<String, BotMessage>,
     stateful_msg_handlers: HashMap<String, BotMessage>,
+    variants: HashMap<String, HashMap<String, BotMessage>>,
 }
 
 impl Parcelable<BotFunction> for BotDialog {
@@ -861,7 +913,29 @@ impl RunnerConfig {
     pub fn get_command_message(&self, command: &str) -> Option<BotMessage> {
         let bm = self.dialog.commands.get(command).cloned();
 
-        bm.map(|bm| bm.fill_literal(command.to_string()))
+        bm.map(|bm| bm.fill_literal(command.to_string()).update_defaults())
+    }
+
+    pub fn get_command_message_varianted(
+        &self,
+        command: &str,
+        variant: &str,
+    ) -> Option<BotMessage> {
+        if !self.dialog.commands.contains_key(command) {
+            return None;
+        }
+        // fallback to regular if not found
+        let bm = match self.dialog.variants.get(command).cloned() {
+            Some(bm) => bm,
+            None => return self.get_command_message(command),
+        };
+        // get variant of message
+        let bm = match bm.get(variant).cloned() {
+            Some(bm) => bm,
+            None => return self.get_command_message(command),
+        };
+
+        Some(bm.fill_literal(command.to_string()).update_defaults())
     }
 
     pub fn get_callback_message(&self, callback: &str) -> Option<BotMessage> {
