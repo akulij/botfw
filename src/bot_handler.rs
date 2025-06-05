@@ -87,6 +87,16 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
         None
     };
 
+    // Filtering to use only defined variants
+    let variant = match bm
+        .variants()
+        .iter()
+        .any(|v| v == variant.as_ref().map_or("", |v| v))
+    {
+        true => variant,
+        false => None,
+    };
+
     let is_propagate: bool = match bm.get_handler() {
         Some(handler) => 'prop: {
             let ctx = match handler.context() {
