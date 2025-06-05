@@ -1,5 +1,7 @@
+use futures::future::join_all;
 use log::{error, info};
 use quickjs_rusty::serde::{from_js, to_js};
+use serde_json::Value;
 use std::{
     str::FromStr,
     sync::{Arc, Mutex, RwLock},
@@ -15,13 +17,17 @@ use teloxide::{
 use crate::{
     botscript::{self, message_info::MessageInfoBuilder, BotMessage, RunnerConfig},
     commands::BotCommand,
-    db::{CallDB, DB},
+    db::{callback_info::CallbackInfo, CallDB, DB},
     message_answerer::MessageAnswerer,
-    notify_admin, update_user_tg, BotError, BotResult, BotRuntime,
+    notify_admin, update_user_tg,
+    utils::callback_button,
+    BotError, BotResult, BotRuntime,
 };
 
 pub type BotHandler =
     Handler<'static, DependencyMap, BotResult<()>, teloxide::dispatching::DpHandlerDescription>;
+
+type CallbackStore = CallbackInfo<Value>;
 
 pub fn script_handler(r: Arc<Mutex<BotRuntime>>) -> BotHandler {
     let cr = r.clone();
@@ -48,14 +54,38 @@ pub fn script_handler(r: Arc<Mutex<BotRuntime>>) -> BotHandler {
         )
         .branch(
             Update::filter_callback_query()
-                .filter_map(move |q: CallbackQuery| {
-                    q.data.and_then(|data| {
-                        let r = std::sync::Arc::clone(&cr);
+                .filter_map_async(move |q: CallbackQuery, mut db: DB| {
+                    let r = Arc::clone(&cr);
+                    async move {
+                        let data = match q.data {
+                            Some(data) => data,
+                            None => return None,
+                        };
+
+                        let ci = match CallbackStore::get(&mut db, &data).await {
+                            Ok(ci) => ci,
+                            Err(err) => {
+                                notify_admin(&format!(
+                                    "Failed to get callback from CallbackInfo, err: {err}"
+                                ))
+                                .await;
+                                return None;
+                            }
+                        };
+                        let ci = match ci {
+                            Some(ci) => ci,
+                            None => return None,
+                        };
+
+                        let data = match ci.literal {
+                            Some(data) => data,
+                            None => return None,
+                        };
+
                         let r = r.lock().expect("RwLock lock on commands map failed");
                         let rc = &r.rc;
-
                         rc.get_callback_message(&data)
-                    })
+                    }
                 })
                 .endpoint(handle_callback),
         )
@@ -126,25 +156,40 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
         return Ok(());
     }
 
-    let buttons = bm
-        .resolve_buttons(&mut db)
-        .await?
-        .map(|buttons| InlineKeyboardMarkup {
-            inline_keyboard: buttons
-                .iter()
-                .map(|r| {
-                    r.iter()
-                        .map(|b| match b {
-                            botscript::ButtonLayout::Callback {
-                                name,
-                                literal: _,
-                                callback,
-                            } => InlineKeyboardButton::callback(name, callback),
-                        })
-                        .collect()
-                })
-                .collect(),
-        });
+    let button_db = db.clone();
+    let buttons = bm.resolve_buttons(&mut db).await?.map(async |buttons| {
+        join_all(buttons.iter().map(async |r| {
+            join_all(r.iter().map(async |b| {
+                match b {
+                    botscript::ButtonLayout::Callback {
+                        name,
+                        literal: _,
+                        callback,
+                    } => {
+                        callback_button(
+                            name,
+                            callback.to_string(),
+                            None::<bool>,
+                            &mut button_db.clone(),
+                        )
+                        .await
+                    }
+                }
+            }))
+            .await
+            .into_iter()
+            .collect::<Result<_, _>>()
+        }))
+        .await
+        .into_iter()
+        .collect::<Result<_, _>>()
+    });
+    let buttons = match buttons {
+        Some(b) => Some(InlineKeyboardMarkup {
+            inline_keyboard: b.await?,
+        }),
+        None => None,
+    };
     let literal = bm.literal().map_or("", |s| s.as_str());
 
     let ma = MessageAnswerer::new(&bot, &mut db, msg.chat.id.0);
@@ -207,25 +252,40 @@ async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery)
         return Ok(());
     }
 
-    let buttons = bm
-        .resolve_buttons(&mut db)
-        .await?
-        .map(|buttons| InlineKeyboardMarkup {
-            inline_keyboard: buttons
-                .iter()
-                .map(|r| {
-                    r.iter()
-                        .map(|b| match b {
-                            botscript::ButtonLayout::Callback {
-                                name,
-                                literal: _,
-                                callback,
-                            } => InlineKeyboardButton::callback(name, callback),
-                        })
-                        .collect()
-                })
-                .collect(),
-        });
+    let button_db = db.clone();
+    let buttons = bm.resolve_buttons(&mut db).await?.map(async |buttons| {
+        join_all(buttons.iter().map(async |r| {
+            join_all(r.iter().map(async |b| {
+                match b {
+                    botscript::ButtonLayout::Callback {
+                        name,
+                        literal: _,
+                        callback,
+                    } => {
+                        callback_button(
+                            name,
+                            callback.to_string(),
+                            None::<bool>,
+                            &mut button_db.clone(),
+                        )
+                        .await
+                    }
+                }
+            }))
+            .await
+            .into_iter()
+            .collect::<Result<_, _>>()
+        }))
+        .await
+        .into_iter()
+        .collect::<Result<_, _>>()
+    });
+    let buttons = match buttons {
+        Some(b) => Some(InlineKeyboardMarkup {
+            inline_keyboard: b.await?,
+        }),
+        None => None,
+    };
     let literal = bm.literal().map_or("", |s| s.as_str());
 
     let (chat_id, msg_id) = {
