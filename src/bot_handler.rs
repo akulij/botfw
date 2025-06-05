@@ -17,7 +17,7 @@ use crate::{
     commands::BotCommand,
     db::{CallDB, DB},
     message_answerer::MessageAnswerer,
-    update_user_tg, BotError, BotResult, BotRuntime,
+    notify_admin, update_user_tg, BotError, BotResult, BotRuntime,
 };
 
 pub type BotHandler =
@@ -68,6 +68,20 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
         .await?;
     let user = update_user_tg(user, &tguser);
     user.update_user(&mut db).await?;
+
+    if bm.meta() == true {
+        let meta = match BotCommand::from_str(msg.text().unwrap_or("")) {
+            Ok(cmd) => cmd.args().map(|m| m.to_string()),
+            Err(err) => {
+                notify_admin(&format!("Error while parsing cmd in `meta`, possibly meta is set not in command, err: {err}")).await;
+                None
+            }
+        };
+
+        if let Some(meta) = meta {
+            user.insert_meta(&mut db, &meta).await?;
+        }
+    }
 
     let is_propagate: bool = match bm.get_handler() {
         Some(handler) => 'prop: {
