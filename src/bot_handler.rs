@@ -13,7 +13,7 @@ use teloxide::{
 };
 
 use crate::{
-    botscript::{self, BotMessage, RunnerConfig},
+    botscript::{self, message_info::MessageInfoBuilder, BotMessage, RunnerConfig},
     commands::BotCommand,
     db::{CallDB, DB},
     message_answerer::MessageAnswerer,
@@ -105,12 +105,16 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
                 None => break 'prop true,
             };
             let jsuser = to_js(ctx, &tguser).unwrap();
+            let mi = MessageInfoBuilder::new()
+                .set_variant(variant.clone())
+                .build();
+            let mi = to_js(ctx, &mi).unwrap();
             info!(
                 "Calling handler {:?} with msg literal: {:?}",
                 handler,
                 bm.literal()
             );
-            match handler.call_args(vec![jsuser]) {
+            match handler.call_args(vec![jsuser, mi]) {
                 Ok(v) => {
                     if v.is_bool() {
                         v.to_bool().unwrap_or(true)
@@ -181,12 +185,14 @@ async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery)
                 None => break 'prop true,
             };
             let jsuser = to_js(ctx, &tguser).unwrap();
+            let mi = MessageInfoBuilder::new().build();
+            let mi = to_js(ctx, &mi).unwrap();
             println!(
                 "Calling handler {:?} with msg literal: {:?}",
                 handler,
                 bm.literal()
             );
-            match handler.call_args(vec![jsuser]) {
+            match handler.call_args(vec![jsuser, mi]) {
                 Ok(v) => {
                     println!("Ok branch, got value: {v:?}");
                     if v.is_bool() {
