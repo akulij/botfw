@@ -500,8 +500,7 @@ pub struct BotMessage {
     state: Option<String>,
 
     /// flag options to command is meta, so it will be appended to user.metas in db
-    #[serde(default)]
-    meta: bool,
+    meta: Option<bool>,
 
     handler: Option<BotFunction>,
 }
@@ -523,7 +522,7 @@ impl BotMessage {
     }
 
     pub fn meta(&self) -> bool {
-        self.meta
+        self.meta.unwrap_or(false)
     }
 }
 
