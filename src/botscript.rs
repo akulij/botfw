@@ -502,8 +502,6 @@ pub struct BotMessage {
 
     /// flag options to command is meta, so it will be appended to user.metas in db
     meta: Option<bool>,
-    #[serde(default)]
-    variants: Vec<MessageVariant>,
 
     handler: Option<BotFunction>,
 }
@@ -565,10 +563,6 @@ impl BotMessage {
 
     pub fn meta(&self) -> bool {
         self.meta.unwrap_or(false)
-    }
-
-    pub fn variants(&self) -> &[MessageVariant] {
-        &self.variants
     }
 }
 
@@ -642,6 +636,7 @@ pub struct BotDialog {
     pub commands: HashMap<String, BotMessage>,
     pub buttons: HashMap<String, BotMessage>,
     stateful_msg_handlers: HashMap<String, BotMessage>,
+    variants: HashMap<String, HashMap<String, BotMessage>>,
 }
 
 impl Parcelable<BotFunction> for BotDialog {
