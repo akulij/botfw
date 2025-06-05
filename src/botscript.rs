@@ -1,5 +1,6 @@
 pub mod application;
 pub mod db;
+pub mod message_info;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
