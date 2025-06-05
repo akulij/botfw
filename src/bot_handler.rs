@@ -1,5 +1,5 @@
 use log::{error, info};
-use quickjs_rusty::serde::to_js;
+use quickjs_rusty::serde::{from_js, to_js};
 use std::{
     str::FromStr,
     sync::{Arc, Mutex, RwLock},
@@ -120,6 +120,23 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
                         v.to_bool().unwrap_or(true)
                     } else if v.is_int() {
                         v.to_int().unwrap_or(1) != 0
+                    } else if v.is_object() {
+                        if let Ok(obj) = v.try_into_object() {
+                            if let Ok(bm) = from_js::<'_, BotMessage>(obj.context(), &obj) {
+                                Box::pin(handle_botmessage(
+                                    bot.clone(),
+                                    db.clone(),
+                                    bm,
+                                    msg.clone(),
+                                ))
+                                .await
+                                .is_err()
+                            } else {
+                                true
+                            }
+                        } else {
+                            true
+                        }
                     } else {
                         // falling back to propagation
                         true
@@ -199,6 +216,18 @@ async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery)
                         v.to_bool().unwrap_or(true)
                     } else if v.is_int() {
                         v.to_int().unwrap_or(1) != 0
+                    } else if v.is_object() {
+                        if let Ok(obj) = v.try_into_object() {
+                            if let Ok(bm) = from_js::<'_, BotMessage>(obj.context(), &obj) {
+                                Box::pin(handle_callback(bot.clone(), db.clone(), bm, q.clone()))
+                                    .await
+                                    .is_err()
+                            } else {
+                                true
+                            }
+                        } else {
+                            true
+                        }
                     } else {
                         // falling back to propagation
                         true
