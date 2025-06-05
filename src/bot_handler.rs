@@ -69,7 +69,7 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
     let user = update_user_tg(user, &tguser);
     user.update_user(&mut db).await?;
 
-    if bm.meta() == true {
+    let variant = if bm.meta() == true {
         let meta = match BotCommand::from_str(msg.text().unwrap_or("")) {
             Ok(cmd) => cmd.args().map(|m| m.to_string()),
             Err(err) => {
@@ -78,10 +78,14 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
             }
         };
 
-        if let Some(meta) = meta {
-            user.insert_meta(&mut db, &meta).await?;
-        }
-    }
+        if let Some(ref meta) = meta {
+            user.insert_meta(&mut db, meta).await?;
+        };
+
+        meta
+    } else {
+        None
+    };
 
     let is_propagate: bool = match bm.get_handler() {
         Some(handler) => 'prop: {
@@ -143,7 +147,8 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
     let literal = bm.literal().map_or("", |s| s.as_str());
 
     let ma = MessageAnswerer::new(&bot, &mut db, msg.chat.id.0);
-    ma.answer(literal, None, buttons).await?;
+    ma.answer(literal, variant.as_ref().map(|v| v.as_str()), buttons)
+        .await?;
 
     Ok(())
 }
