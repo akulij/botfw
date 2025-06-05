@@ -513,6 +513,24 @@ impl BotMessage {
         }
     }
 
+    /// chain of modifications on BotMessage
+    pub fn update_defaults(self) -> Self {
+        let bm = self;
+        // if message is `start`, defaulting meta to true, if not set
+        let bm = match bm.meta {
+            Some(_) => bm,
+            None => match &bm.literal {
+                Some(l) if l == "start" => Self {
+                    meta: Some(true),
+                    ..bm
+                },
+                _ => bm,
+            },
+        };
+
+        bm
+    }
+
     pub fn is_replace(&self) -> bool {
         self.replace
     }
@@ -868,7 +886,7 @@ impl RunnerConfig {
     pub fn get_command_message(&self, command: &str) -> Option<BotMessage> {
         let bm = self.dialog.commands.get(command).cloned();
 
-        bm.map(|bm| bm.fill_literal(command.to_string()))
+        bm.map(|bm| bm.fill_literal(command.to_string()).update_defaults())
     }
 
     pub fn get_callback_message(&self, callback: &str) -> Option<BotMessage> {
