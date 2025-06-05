@@ -507,10 +507,10 @@ pub struct BotMessage {
 }
 
 impl BotMessage {
-    pub fn fill_literal(&self, l: String) -> Self {
+    pub fn fill_literal(self, l: String) -> Self {
         BotMessage {
             literal: self.clone().literal.or(Some(l)),
-            ..self.clone()
+            ..self
         }
     }
 
