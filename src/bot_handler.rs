@@ -7,7 +7,7 @@ use std::{
 use teloxide::{
     dispatching::{dialogue::GetChatId, UpdateFilterExt},
     dptree::{self, Handler},
-    prelude::DependencyMap,
+    prelude::{DependencyMap, Requester},
     types::{CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, Update},
     Bot,
 };
@@ -155,6 +155,7 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
 }
 
 async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery) -> BotResult<()> {
+    bot.answer_callback_query(&q.id).await?;
     info!("Eval BM: {:?}", bm);
     let tguser = q.from.clone();
     let user = db
