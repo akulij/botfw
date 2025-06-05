@@ -501,8 +501,30 @@ pub struct BotMessage {
 
     /// flag options to command is meta, so it will be appended to user.metas in db
     meta: Option<bool>,
+    variants: Vec<MessageVariant>,
 
     handler: Option<BotFunction>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MessageVariant(String);
+
+impl MessageVariant {
+    pub fn get_name(&self) -> &str {
+        &self.0
+    }
+}
+
+impl PartialEq<String> for &MessageVariant {
+    fn eq(&self, other: &String) -> bool {
+        self.0 == *other
+    }
+}
+
+impl PartialEq<&str> for &MessageVariant {
+    fn eq(&self, other: &&str) -> bool {
+        self.0 == *other
+    }
 }
 
 impl BotMessage {
@@ -541,6 +563,10 @@ impl BotMessage {
 
     pub fn meta(&self) -> bool {
         self.meta.unwrap_or(false)
+    }
+
+    pub fn variants(&self) -> &[MessageVariant] {
+        &self.variants
     }
 }
 
