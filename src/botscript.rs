@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use crate::db::raw_calls::RawCallError;
 use crate::db::{CallDB, DbError, User, DB};
+use crate::notify_admin;
 use crate::utils::parcelable::{ParcelType, Parcelable, ParcelableError, ParcelableResult};
 use chrono::{DateTime, Days, NaiveTime, ParseError, TimeDelta, Timelike, Utc};
 use db::attach_db_obj;
@@ -477,9 +478,12 @@ impl ButtonName {
 
                 Ok(match value {
                     Some(value) => Ok(value),
-                    None => Err(ResolveError::IncorrectLiteral(format!(
-                        "not found literal `{literal}` in DB"
-                    ))),
+                    None => {
+                        notify_admin(&format!("Literal `{literal}` is not set!!!")).await;
+                        Err(ResolveError::IncorrectLiteral(format!(
+                            "not found literal `{literal}` in DB"
+                        )))
+                    }
                 }?)
             }
         }
