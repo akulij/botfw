@@ -912,6 +912,28 @@ impl RunnerConfig {
         bm.map(|bm| bm.fill_literal(command.to_string()).update_defaults())
     }
 
+    pub fn get_command_message_varianted(
+        &self,
+        command: &str,
+        variant: &str,
+    ) -> Option<BotMessage> {
+        if !self.dialog.commands.contains_key(command) {
+            return None;
+        }
+        // fallback to regular if not found
+        let bm = match self.dialog.variants.get(command).cloned() {
+            Some(bm) => bm,
+            None => return self.get_command_message(command),
+        };
+        // get variant of message
+        let bm = match bm.get(variant).cloned() {
+            Some(bm) => bm,
+            None => return self.get_command_message(command),
+        };
+
+        Some(bm.fill_literal(command.to_string()).update_defaults())
+    }
+
     pub fn get_callback_message(&self, callback: &str) -> Option<BotMessage> {
         let bm = self.dialog.buttons.get(callback).cloned();
 
