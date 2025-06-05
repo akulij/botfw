@@ -38,7 +38,11 @@ pub fn script_handler(r: Arc<Mutex<BotRuntime>>) -> BotHandler {
                     let r = r.lock().expect("RwLock lock on commands map failed");
                     let rc = &r.rc;
 
-                    rc.get_command_message(command)
+                    // it's not necessary, but avoiding some hashmap lookups
+                    match bc.args() {
+                        Some(variant) => rc.get_command_message_varianted(command, variant),
+                        None => rc.get_command_message(command),
+                    }
                 })
                 .endpoint(handle_botmessage),
         )
@@ -69,32 +73,15 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
     let user = update_user_tg(user, &tguser);
     user.update_user(&mut db).await?;
 
-    let variant = if bm.meta() == true {
-        let meta = match BotCommand::from_str(msg.text().unwrap_or("")) {
-            Ok(cmd) => cmd.args().map(|m| m.to_string()),
-            Err(err) => {
-                notify_admin(&format!("Error while parsing cmd in `meta`, possibly meta is set not in command, err: {err}")).await;
-                None
-            }
-        };
-
-        if let Some(ref meta) = meta {
-            user.insert_meta(&mut db, meta).await?;
-        };
-
-        meta
-    } else {
-        None
+    let variant = match BotCommand::from_str(msg.text().unwrap_or("")) {
+        Ok(cmd) => cmd.args().map(|m| m.to_string()),
+        Err(_) => None,
     };
 
-    // Filtering to use only defined variants
-    let variant = match bm
-        .variants()
-        .iter()
-        .any(|v| v == variant.as_ref().map_or("", |v| v))
-    {
-        true => variant,
-        false => None,
+    if bm.meta() == true {
+        if let Some(ref meta) = variant {
+            user.insert_meta(&mut db, meta).await?;
+        };
     };
 
     let is_propagate: bool = match bm.get_handler() {
@@ -120,23 +107,6 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
                         v.to_bool().unwrap_or(true)
                     } else if v.is_int() {
                         v.to_int().unwrap_or(1) != 0
-                    } else if v.is_object() {
-                        if let Ok(obj) = v.try_into_object() {
-                            if let Ok(bm) = from_js::<'_, BotMessage>(obj.context(), &obj) {
-                                Box::pin(handle_botmessage(
-                                    bot.clone(),
-                                    db.clone(),
-                                    bm,
-                                    msg.clone(),
-                                ))
-                                .await
-                                .is_err()
-                            } else {
-                                true
-                            }
-                        } else {
-                            true
-                        }
                     } else {
                         // falling back to propagation
                         true
@@ -216,18 +186,6 @@ async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery)
                         v.to_bool().unwrap_or(true)
                     } else if v.is_int() {
                         v.to_int().unwrap_or(1) != 0
-                    } else if v.is_object() {
-                        if let Ok(obj) = v.try_into_object() {
-                            if let Ok(bm) = from_js::<'_, BotMessage>(obj.context(), &obj) {
-                                Box::pin(handle_callback(bot.clone(), db.clone(), bm, q.clone()))
-                                    .await
-                                    .is_err()
-                            } else {
-                                true
-                            }
-                        } else {
-                            true
-                        }
                     } else {
                         // falling back to propagation
                         true
