@@ -20,16 +20,14 @@ pub fn attach_user_application(
     bot: &Bot,
 ) -> Result<(), ScriptError> {
     let db: std::sync::Arc<RwLock<DB>> = std::sync::Arc::new(RwLock::new(db.clone()));
-    let dbbox = Box::new(db.clone());
-    let db: &'static _ = Box::leak(dbbox);
 
     let bot: std::sync::Arc<RwLock<Bot>> = std::sync::Arc::new(RwLock::new(bot.clone()));
-    let botbox = Box::new(bot.clone());
-    let bot: &'static _ = Box::leak(botbox);
 
     let user_application =
         c.create_callback(move |q: OwnedJsObject| -> Result<_, ScriptError> {
-            let db = db.clone();
+            let bot1 = bot.clone();
+            let bot1 = bot1.read().unwrap();
+            let bot2 = bot.read().unwrap();
             let user: teloxide::types::User = match from_js(q.context(), &q) {
                 Ok(q) => q,
                 Err(_) => todo!(),
@@ -42,12 +40,7 @@ pub fn attach_user_application(
             let db2 = db.clone();
             let msg = tokio::task::block_in_place(move || {
                 Handle::current().block_on(async move {
-                    send_application_to_chat(
-                        &bot.read().unwrap(),
-                        &mut db2.write().unwrap(),
-                        &application,
-                    )
-                    .await
+                    send_application_to_chat(&bot1, &mut db2.write().unwrap(), &application).await
                 })
             });
             let msg = match msg {
@@ -59,12 +52,11 @@ pub fn attach_user_application(
             };
 
             let (chat_id, msg_id) = futures::executor::block_on(
-                MessageAnswerer::new(
-                    &bot.read().unwrap(),
-                    &mut db.write().unwrap(),
-                    user.id.0 as i64,
-                )
-                .answer("left_application_msg", None, None),
+                MessageAnswerer::new(&bot2, &mut db.write().unwrap(), user.id.0 as i64).answer(
+                    "left_application_msg",
+                    None,
+                    None,
+                ),
             )
             .unwrap();
             futures::executor::block_on(
