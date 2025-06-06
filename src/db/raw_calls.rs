@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use mongodb::Database;
 
 use super::CallDB;
@@ -14,6 +15,7 @@ pub enum RawCallError {
 }
 pub type RawCallResult<T> = Result<T, RawCallError>;
 
+#[async_trait]
 pub trait RawCall {
     async fn get_database(&mut self) -> Database;
     async fn find_one(&mut self, collection: &str, query: Value) -> RawCallResult<Option<Value>> {
@@ -31,7 +33,8 @@ pub trait RawCall {
     }
 }
 
-impl<T: CallDB> RawCall for T {
+#[async_trait]
+impl<T: CallDB + Send> RawCall for T {
     async fn get_database(&mut self) -> Database {
         CallDB::get_database(self).await
     }
