@@ -11,16 +11,13 @@ pub mod utils;
 
 use bot_manager::BotManager;
 use botscript::application::attach_user_application;
-use botscript::{BotMessage, Runner, RunnerConfig, ScriptError, ScriptResult};
+use botscript::{Runner, RunnerConfig, ScriptError, ScriptResult};
 use db::application::Application;
 use db::bots::BotInstance;
 use db::callback_info::CallbackInfo;
-use db::message_forward::MessageForward;
 use handlers::admin::admin_handler;
-use log::{error, info, warn};
-use message_answerer::MessageAnswerer;
-use std::sync::{Arc, Mutex, RwLock};
-use utils::create_callback_button;
+use log::{error, info};
+use std::sync::{Arc, Mutex};
 
 use crate::db::{CallDB, DB};
 use crate::mongodb_storage::MongodbStorage;
@@ -29,13 +26,8 @@ use db::DbError;
 use envconfig::Envconfig;
 use serde::{Deserialize, Serialize};
 use teloxide::dispatching::dialogue::serializer::Json;
-use teloxide::dispatching::dialogue::{GetChatId, Serializer};
-use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup};
-use teloxide::{
-    payloads::SendMessageSetters,
-    prelude::*,
-    utils::{command::BotCommands, render::RenderMessageTextHelper},
-};
+use teloxide::dispatching::dialogue::Serializer;
+use teloxide::prelude::*;
 
 type BotDialogue = Dialogue<State, MongodbStorage<Json>>;
 
@@ -172,6 +164,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut db = DB::init(&config.db_url, config.bot_name.to_owned()).await?;
 
     BotInstance::restart_all(&mut db, false).await?;
+    // if we can't get info for main bot, we should stop anyway
+    #[allow(clippy::unwrap_used)]
     let bm = BotManager::with(
         async || {
             let config = config.clone();
@@ -188,7 +182,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             BotInstance::restart_all(&mut db, false).await.unwrap();
             std::iter::once(bi).chain(instances)
         },
-        async |bi| vec![admin_handler()].into_iter(),
+        async |_| vec![admin_handler()].into_iter(),
     );
 
     bm.dispatch(&mut db).await;
@@ -218,9 +212,9 @@ async fn send_application_to_chat(
                 app.from
             ))
             .await;
-            return Err(BotError::AdminMisconfiguration(format!(
-                "admin forget to set support_chat_id"
-            )));
+            return Err(BotError::AdminMisconfiguration(
+                "admin forget to set support_chat_id".to_string(),
+            ));
         }
     };
     let msg = match db.get_literal_value("application_format").await? {
@@ -236,9 +230,9 @@ async fn send_application_to_chat(
             ),
         None => {
             notify_admin("format for support_chat_id is not set").await;
-            return Err(BotError::AdminMisconfiguration(format!(
-                "admin forget to set application_format"
-            )));
+            return Err(BotError::AdminMisconfiguration(
+                "admin forget to set application_format".to_string(),
+            ));
         }
     };
 
