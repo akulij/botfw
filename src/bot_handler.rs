@@ -208,7 +208,6 @@ async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery)
     let user = update_user_tg(user, &tguser);
     user.update_user(&mut db).await?;
 
-    println!("Is handler set: {}", bm.get_handler().is_some());
     let is_propagate: bool = match bm.get_handler() {
         Some(handler) => 'prop: {
             let ctx = match handler.context() {
@@ -219,14 +218,8 @@ async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery)
             let jsuser = to_js(ctx, &tguser).unwrap();
             let mi = MessageInfoBuilder::new().build();
             let mi = to_js(ctx, &mi).unwrap();
-            println!(
-                "Calling handler {:?} with msg literal: {:?}",
-                handler,
-                bm.literal()
-            );
             match handler.call_args(vec![jsuser, mi]) {
                 Ok(v) => {
-                    println!("Ok branch, got value: {v:?}");
                     if v.is_bool() {
                         v.to_bool().unwrap_or(true)
                     } else if v.is_int() {
@@ -237,7 +230,6 @@ async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery)
                     }
                 }
                 Err(err) => {
-                    println!("ERR branch");
                     error!("Failed to get return of handler, err: {err}");
                     // falling back to propagation
                     true
@@ -312,7 +304,7 @@ async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery)
                 Ok(msg_id) => {
                     ma.replace_message(msg_id, literal, buttons).await?;
                 }
-                Err(err) => {
+                Err(_) => {
                     ma.answer(literal, None, buttons).await?;
                 }
             };
