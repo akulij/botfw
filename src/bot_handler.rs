@@ -15,7 +15,7 @@ use teloxide::{
 };
 
 use crate::{
-    botscript::{self, message_info::MessageInfoBuilder, BotMessage},
+    botscript::{self, message_info::MessageInfoBuilder, BotMessage, ScriptError},
     commands::BotCommand,
     db::{callback_info::CallbackInfo, CallDB, DB},
     message_answerer::MessageAnswerer,
@@ -121,11 +121,11 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
                 // falling back to propagation
                 None => break 'prop true,
             };
-            let jsuser = to_js(ctx, &tguser).unwrap();
+            let jsuser = to_js(ctx, &tguser).map_err(ScriptError::from)?;
             let mi = MessageInfoBuilder::new()
                 .set_variant(variant.clone())
                 .build();
-            let mi = to_js(ctx, &mi).unwrap();
+            let mi = to_js(ctx, &mi).map_err(ScriptError::from)?;
             info!(
                 "Calling handler {:?} with msg literal: {:?}",
                 handler,
@@ -215,9 +215,9 @@ async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery)
                 // falling back to propagation
                 None => break 'prop true,
             };
-            let jsuser = to_js(ctx, &tguser).unwrap();
+            let jsuser = to_js(ctx, &tguser).map_err(ScriptError::from)?;
             let mi = MessageInfoBuilder::new().build();
-            let mi = to_js(ctx, &mi).unwrap();
+            let mi = to_js(ctx, &mi).map_err(ScriptError::from)?;
             match handler.call_args(vec![jsuser, mi]) {
                 Ok(v) => {
                     if v.is_bool() {
