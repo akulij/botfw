@@ -218,9 +218,10 @@ pub async fn spawn_notificator_thread(
 
         rt.block_on(async {
             loop {
-                let r = c.runtime.lock().expect("Poisoned Runtime lock");
-                let notifications = r.rc.get_nearest_notifications();
-                drop(r); // unlocking mutex
+                let notifications = {
+                    let r = c.runtime.lock().expect("Poisoned Runtime lock");
+                    r.rc.get_nearest_notifications()
+                };
 
                 match notifications {
                     Some(n) => {
