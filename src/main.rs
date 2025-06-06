@@ -17,6 +17,7 @@ use db::bots::BotInstance;
 use db::callback_info::CallbackInfo;
 use handlers::admin::admin_handler;
 use log::{error, info};
+use message_answerer::MessageAnswererError;
 use std::sync::{Arc, Mutex};
 
 use crate::db::{CallDB, DB};
@@ -145,6 +146,7 @@ pub enum BotError {
     ScriptError(#[from] ScriptError),
     IoError(#[from] std::io::Error),
     RwLockError(String),
+    MAError(#[from] MessageAnswererError),
 }
 
 pub type BotResult<T> = Result<T, BotError>;
