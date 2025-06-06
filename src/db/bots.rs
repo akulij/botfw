@@ -43,19 +43,23 @@ impl BotInstance {
         Ok(self)
     });
 
-    pub async fn get_all<D: CallDB>(db: &mut D) -> DbResult<Vec<Self>> {
+    pub async fn get_all<D: GetCollection>(db: &mut D) -> DbResult<Vec<Self>> {
         let bi = db.get_collection::<Self>().await;
 
         Ok(bi.find(doc! {}).await?.try_collect().await?)
     }
 
-    pub async fn get_by_name<D: CallDB>(db: &mut D, name: &str) -> DbResult<Option<Self>> {
+    pub async fn get_by_name<D: GetCollection>(db: &mut D, name: &str) -> DbResult<Option<Self>> {
         let bi = db.get_collection::<Self>().await;
 
         Ok(bi.find_one(doc! {"name": name}).await?)
     }
 
-    pub async fn restart_one<D: CallDB>(db: &mut D, name: &str, restart: bool) -> DbResult<()> {
+    pub async fn restart_one<D: GetCollection>(
+        db: &mut D,
+        name: &str,
+        restart: bool,
+    ) -> DbResult<()> {
         let bi = db.get_collection::<Self>().await;
 
         bi.update_one(
@@ -66,7 +70,7 @@ impl BotInstance {
         Ok(())
     }
 
-    pub async fn restart_all<D: CallDB>(db: &mut D, restart: bool) -> DbResult<()> {
+    pub async fn restart_all<D: GetCollection>(db: &mut D, restart: bool) -> DbResult<()> {
         let bi = db.get_collection::<Self>().await;
 
         bi.update_many(doc! {}, doc! { "$set": { "restart_flag": restart } })
@@ -74,7 +78,11 @@ impl BotInstance {
         Ok(())
     }
 
-    pub async fn update_script<D: CallDB>(db: &mut D, name: &str, script: &str) -> DbResult<()> {
+    pub async fn update_script<D: GetCollection>(
+        db: &mut D,
+        name: &str,
+        script: &str,
+    ) -> DbResult<()> {
         let bi = db.get_collection::<Self>().await;
 
         bi.update_one(

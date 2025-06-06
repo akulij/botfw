@@ -11,7 +11,6 @@ use chrono::{DateTime, Local, Utc};
 use enum_stringify::EnumStringify;
 use futures::stream::TryStreamExt;
 
-use futures::StreamExt;
 use mongodb::bson::serde_helpers::chrono_datetime_as_bson_datetime;
 use mongodb::options::IndexOptions;
 use mongodb::{bson::doc, options::ClientOptions, Client};
@@ -57,7 +56,7 @@ macro_rules! query_call {
 #[macro_export]
 macro_rules! query_call_consume {
     ($func_name:ident, $self:ident, $db:ident, $return_type:ty, $body:block) => {
-        pub async fn $func_name<D: CallDB>($self, $db: &mut D)
+        pub async fn $func_name<D: crate::db::GetCollection + CallDB>($self, $db: &mut D)
             -> DbResult<$return_type> $body
     };
 }
@@ -207,6 +206,7 @@ pub trait DbCollection {
     const COLLECTION: &str;
 }
 
+#[async_trait]
 pub trait GetCollection {
     async fn get_collection<C: DbCollection + Send + Sync>(&mut self) -> Collection<C>;
 }
@@ -222,7 +222,8 @@ impl CallDB for DB {
     }
 }
 
-impl<T: CallDB> GetCollection for T {
+#[async_trait]
+impl<T: CallDB + Send> GetCollection for T {
     async fn get_collection<C: DbCollection + Send + Sync>(&mut self) -> Collection<C> {
         self.get_database()
             .await
