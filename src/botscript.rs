@@ -2,7 +2,7 @@ pub mod application;
 pub mod db;
 pub mod message_info;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use std::time::Duration;
 
 use crate::db::raw_calls::RawCallError;
@@ -827,9 +827,13 @@ impl NotificationMessage {
             NotificationMessage::Literal { literal } => Ok(db.get_literal_value(literal).await?),
             NotificationMessage::Text { text } => Ok(Some(text.to_string())),
             NotificationMessage::BotFunction(f) => {
-                let jsuser = to_js(f.context().expect("Function is not js"), user).unwrap();
+                let jsuser = to_js(f.context().expect("Function is not js"), user)?;
                 let text = f.call_args(vec![jsuser])?;
-                let text = from_js(f.context().unwrap(), &text)?;
+                let text = from_js(
+                    f.context()
+                        .expect("Context was not provided after function call"),
+                    &text,
+                )?;
                 Ok(text)
             }
         }
@@ -999,9 +1003,8 @@ impl Parcelable<BotFunction> for RunnerConfig {
     }
 }
 
-#[derive(Clone)]
 pub struct Runner {
-    context: Arc<Mutex<Context>>,
+    context: Mutex<Context>,
 }
 
 impl Runner {
@@ -1015,7 +1018,7 @@ impl Runner {
         })?;
 
         Ok(Runner {
-            context: Arc::new(Mutex::new(context)),
+            context: Mutex::new(context),
         })
     }
 
@@ -1030,7 +1033,7 @@ impl Runner {
     where
         F: FnOnce(&Context, &mut OwnedJsObject) -> R,
     {
-        let context = self.context.lock().unwrap();
+        let context = self.context.lock().expect("Can't lock context");
         let mut global = context.global()?;
 
         let res = f(&context, &mut global);
