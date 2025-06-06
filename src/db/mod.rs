@@ -56,7 +56,7 @@ macro_rules! query_call {
 #[macro_export]
 macro_rules! query_call_consume {
     ($func_name:ident, $self:ident, $db:ident, $return_type:ty, $body:block) => {
-        pub async fn $func_name<D: crate::db::GetCollection + CallDB>($self, $db: &mut D)
+        pub async fn $func_name<D: $crate::db::GetCollection + CallDB>($self, $db: &mut D)
             -> DbResult<$return_type> $body
     };
 }
