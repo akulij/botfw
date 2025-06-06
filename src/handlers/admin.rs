@@ -17,7 +17,7 @@ use crate::db::bots::BotInstance;
 use crate::db::message_forward::MessageForward;
 use crate::db::{CallDB, DB};
 use crate::mongodb_storage::MongodbStorage;
-use crate::{BotDialogue, BotError, BotResult, CallbackStore, State};
+use crate::{notify_admin, BotDialogue, BotError, BotResult, CallbackStore, State};
 
 pub fn admin_handler() -> BotHandler {
     dptree::entry()
@@ -103,7 +103,17 @@ async fn newscript_handler(bot: Bot, mut db: DB, msg: Message, name: String) -> 
                     let mut stream = bot.download_file_stream(&file.path);
                     let mut buf: Vec<u8> = Vec::new();
                     while let Some(bytes) = stream.next().await {
-                        let mut bytes = bytes.unwrap().to_vec();
+                        let mut bytes = match bytes {
+                            Ok(bytes) => bytes.to_vec(),
+                            Err(err) => {
+                                notify_admin(&format!(
+                                    "Failed to download file: {}, err: {err}",
+                                    file.path
+                                ))
+                                .await;
+                                return Ok(());
+                            }
+                        };
                         buf.append(&mut bytes);
                     }
 
