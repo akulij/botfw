@@ -16,16 +16,14 @@ pub fn attach_db_obj(c: &Context, o: &mut OwnedJsObject, db: &DB) -> Result<(), 
         .expect("the created object was not an object :/");
 
     let db: std::sync::Arc<RwLock<DB>> = std::sync::Arc::new(RwLock::new(db.clone()));
-    let dbbox = Box::new(db);
-    let db: &'static _ = Box::leak(dbbox);
 
     let find_one = c.create_callback(
-        |collection: String, q: OwnedJsObject| -> Result<_, ScriptError> {
+        move |collection: String, q: OwnedJsObject| -> Result<_, ScriptError> {
+            // let db = db.clone();
             let query: serde_json::Value = match from_js(q.context(), &q) {
                 Ok(q) => q,
                 Err(_) => todo!(),
             };
-            let db = db.clone();
 
             let value = futures::executor::block_on(
                 db.write()
