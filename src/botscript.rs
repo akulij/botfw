@@ -955,15 +955,19 @@ impl RunnerConfig {
     }
 
     pub fn created_at(&self) -> DateTime<Utc> {
-        self.created_at.at + TimeDelta::try_hours(self.config.timezone.into()).unwrap()
+        self.timezoned_time(self.created_at.at)
+    }
+
+    pub fn timezoned_time(&self, dt: DateTime<Utc>) -> DateTime<Utc> {
+        dt + TimeDelta::try_hours(self.config.timezone.into())
+            .unwrap_or_else(|| TimeDelta::try_hours(0).expect("Timezone UTC+0 does not exists"))
     }
 
     /// if None is returned, then garanteed that later calls will also return None,
     /// so, if you'll get None, no notifications will be provided later
     pub fn get_nearest_notifications(&self) -> Option<NotificationBlock> {
         let start_time = self.created_at();
-        let now =
-            chrono::offset::Utc::now() + TimeDelta::try_hours(self.config.timezone.into()).unwrap();
+        let now = self.timezoned_time(chrono::offset::Utc::now());
 
         let ordered = self
             .notifications
