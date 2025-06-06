@@ -760,7 +760,11 @@ impl NotificationFilter {
             NotificationFilter::Random { random } => Ok(db.get_random_users(*random).await?),
             NotificationFilter::BotFunction(f) => {
                 let users = f.call()?;
-                let users = from_js(f.context().unwrap(), &users)?;
+                // we just called function, so context is definetly valid
+                let users = from_js(
+                    f.context().expect("Context invalid after function call"),
+                    &users,
+                )?;
                 Ok(users)
             }
         }
@@ -768,7 +772,7 @@ impl NotificationFilter {
 }
 
 impl Parcelable<BotFunction> for NotificationFilter {
-    fn get_field(&mut self, name: &str) -> ParcelableResult<ParcelType<BotFunction>> {
+    fn get_field(&mut self, _name: &str) -> ParcelableResult<ParcelType<BotFunction>> {
         todo!()
     }
 
@@ -798,7 +802,7 @@ pub enum NotificationMessage {
 }
 
 impl Parcelable<BotFunction> for NotificationMessage {
-    fn get_field(&mut self, name: &str) -> ParcelableResult<ParcelType<BotFunction>> {
+    fn get_field(&mut self, _name: &str) -> ParcelableResult<ParcelType<BotFunction>> {
         todo!()
     }
 
@@ -1060,7 +1064,6 @@ impl Runner {
 #[allow(clippy::unwrap_used)]
 #[allow(clippy::print_stdout)]
 mod tests {
-    use quickjs_rusty::OwnedJsObject;
     use serde_json::json;
 
     use super::*;
@@ -1104,22 +1107,6 @@ mod tests {
         let sres: String = res.js_into().unwrap();
         println!("Deserialized RES: {:?}", sres);
         assert_eq!(sres, "cancelation");
-    }
-
-    fn recursive_format(o: OwnedJsObject) -> String {
-        let props: Vec<_> = o.properties_iter().unwrap().map(|x| x.unwrap()).collect();
-        let sp: Vec<String> = props
-            .into_iter()
-            .map(|v| {
-                if v.is_object() {
-                    recursive_format(v.try_into_object().unwrap())
-                } else {
-                    format!("{:?}", v)
-                }
-            })
-            .collect();
-
-        format!("{:?}", sp)
     }
 
     #[test]
