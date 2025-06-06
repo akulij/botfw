@@ -11,7 +11,7 @@ use teloxide::{
 use crate::db::{DbError, DbResult, Media};
 use crate::{
     db::{CallDB, DB},
-    notify_admin, BotResult,
+    notify_admin,
 };
 
 macro_rules! send_media {
