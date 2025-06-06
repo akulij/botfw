@@ -127,7 +127,7 @@ impl<'a> MessageAnswerer<'a> {
             .and_then(|m| m.variant);
         let text = self.get_text(literal, variant.as_deref(), true).await?;
         let media = self.db.get_media(literal).await?;
-        let (chat_id, msg_id) = match media.len() {
+        let (_, msg_id) = match media.len() {
             // just a text
             0 => {
                 let msg =
