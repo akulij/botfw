@@ -187,7 +187,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         async |_| vec![admin_handler()].into_iter(),
     );
 
-    bm.dispatch(&mut db).await;
+    bm.dispatch(&mut db).await?;
+    Ok(())
 }
 
 async fn send_application_to_chat(
