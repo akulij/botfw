@@ -70,7 +70,7 @@ where
         }
     }
 
-    pub async fn dispatch(mut self, db: &mut DB) -> ! {
+    pub async fn dispatch(mut self, db: &mut DB) -> BotResult<()> {
         loop {
             'biter: for bi in (self.bi_getter)().await {
                 // removing handler to force restart
@@ -82,7 +82,7 @@ where
                         "Trying to restart bot `{}`, new script: {}",
                         bi.name, bi.script
                     );
-                    let runner = self.bot_pool.remove(&bi.name);
+                    let _runner = self.bot_pool.remove(&bi.name);
                 };
                 // start, if not started
                 let mut bot_runner = match self.bot_pool.remove(&bi.name) {
@@ -90,7 +90,7 @@ where
                     None => {
                         let handlers = (self.h_mapper)(bi.clone()).await;
                         info!("NEW INSTANCE: Starting new instance! bot name: {}", bi.name);
-                        self.start_bot(bi, db, handlers.collect()).await.unwrap();
+                        self.start_bot(bi, db, handlers.collect()).await?;
                         continue 'biter;
                     }
                 };
@@ -125,8 +125,7 @@ where
                                 bot_runner.controller.db.clone(),
                                 handler,
                             )
-                            .await
-                            .unwrap(),
+                            .await?,
                         )
                     }
                 };
@@ -196,7 +195,7 @@ pub async fn spawn_bot_thread(
         // let rt = tokio::runtime::Builder::new_current_thread()
         //     .enable_all()
         //     .build()?;
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new()?;
 
         rt.block_on(
             Dispatcher::builder(bot, handler)
@@ -215,11 +214,11 @@ pub async fn spawn_notificator_thread(
     mut c: BotController,
 ) -> BotResult<JoinHandle<BotResult<()>>> {
     let thread = std::thread::spawn(move || -> BotResult<()> {
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new()?;
 
         rt.block_on(async {
             loop {
-                let r = c.runtime.lock().unwrap();
+                let r = c.runtime.lock().expect("Poisoned Runtime lock");
                 let notifications = r.rc.get_nearest_notifications();
                 drop(r); // unlocking mutex
 
