@@ -1,3 +1,5 @@
+// just keeping track locks in asychronous calls
+#![allow(clippy::await_holding_lock)]
 use std::sync::RwLock;
 
 use log::info;
@@ -26,8 +28,8 @@ pub fn attach_user_application(
     let user_application =
         c.create_callback(move |q: OwnedJsObject| -> Result<_, ScriptError> {
             let bot1 = bot.clone();
-            let bot1 = bot1.read().expect("Can't read bot");
-            let bot2 = bot.read().expect("Can't read bot");
+            let bot1 = bot1.read().expect("Can't read lock bot");
+            let bot2 = bot.read().expect("Can't read lock bot");
             let user: teloxide::types::User = match from_js(q.context(), &q) {
                 Ok(q) => q,
                 Err(_) => todo!(),
@@ -35,7 +37,7 @@ pub fn attach_user_application(
 
             let application = futures::executor::block_on(
                 Application::new(user.clone())
-                    .store_db(&mut db.write().expect("Can't write to db rwlock")),
+                    .store_db(&mut db.write().expect("Can't write lock db")),
             )?;
 
             let db2 = db.clone();
@@ -43,7 +45,7 @@ pub fn attach_user_application(
                 Handle::current().block_on(async move {
                     send_application_to_chat(
                         &bot1,
-                        &mut db2.write().expect("Can't write to db rwlock"),
+                        &mut db2.write().expect("Can't write lock db"),
                         &application,
                     )
                     .await
@@ -60,14 +62,14 @@ pub fn attach_user_application(
             let (chat_id, msg_id) = futures::executor::block_on(
                 MessageAnswerer::new(
                     &bot2,
-                    &mut db.write().expect("Can't write to db rwlock"),
+                    &mut db.write().expect("Can't write lock db"),
                     user.id.0 as i64,
                 )
                 .answer("left_application_msg", None, None),
             )?;
             futures::executor::block_on(
                 MessageForward::new(msg.chat.id.0, msg.id.0, chat_id, msg_id, false)
-                    .store_db(&mut db.write().unwrap()),
+                    .store_db(&mut db.write().expect("Can't write lock db")),
             )?;
 
             let ret = true;
