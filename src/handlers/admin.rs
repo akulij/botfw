@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use itertools::Itertools;
 use log::{info, warn};
 use std::time::Duration;
@@ -108,15 +106,15 @@ async fn newscript_handler(bot: Bot, mut db: DB, msg: Message, name: String) -> 
                         let mut bytes = bytes.unwrap().to_vec();
                         buf.append(&mut bytes);
                     }
-                    let script = match String::from_utf8(buf) {
+
+                    match String::from_utf8(buf) {
                         Ok(s) => s,
                         Err(err) => {
                             warn!("Failed to parse buf to string, err: {err}");
                             bot.send_message(msg.chat.id, format!("Failed to Convert file to script: file is not UTF-8, err: {err}")).await?;
                             return Ok(());
                         }
-                    };
-                    script
+                    }
                 }
                 _ => todo!(),
             }
@@ -129,7 +127,7 @@ async fn newscript_handler(bot: Bot, mut db: DB, msg: Message, name: String) -> 
         None => {
             bot.send_message(
                 msg.chat.id,
-                format!("Failed to set script, possibly bots name is incorrent"),
+                "Failed to set script, possibly bots name is incorrent".to_string(),
             )
             .await?;
             return Ok(());

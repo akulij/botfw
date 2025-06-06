@@ -1,28 +1,20 @@
 use std::{
     collections::HashMap,
     future::Future,
-    sync::{Arc, Mutex, RwLock},
+    sync::{Arc, Mutex},
     thread::JoinHandle,
     time::Duration,
 };
 
-use lazy_static::lazy_static;
 use log::{error, info};
-use teloxide::{
-    dispatching::dialogue::serializer::Json,
-    dptree,
-    prelude::{Dispatcher, Requester},
-    types::{ChatId, UserId},
-    Bot,
-};
-use tokio::runtime::Handle;
+use teloxide::{dispatching::dialogue::serializer::Json, dptree, prelude::Dispatcher, Bot};
 
 use crate::{
     bot_handler::{script_handler, BotHandler},
     db::{bots::BotInstance, DbError, DB},
     message_answerer::MessageAnswerer,
     mongodb_storage::MongodbStorage,
-    BotController, BotError, BotResult, BotRuntime,
+    BotController, BotResult, BotRuntime,
 };
 
 pub struct BotRunner {
@@ -235,7 +227,7 @@ pub async fn spawn_notificator_thread(
                     Some(n) => {
                         // waiting time to send notification
                         tokio::time::sleep(n.wait_for()).await;
-                        'n: for n in n.notifications().into_iter() {
+                        'n: for n in n.notifications().iter() {
                             for user in n.get_users(&c.db).await?.into_iter() {
                                 let text = match n.resolve_message(&c.db, &user).await? {
                                     Some(text) => text,

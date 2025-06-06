@@ -1,21 +1,21 @@
 use futures::future::join_all;
 use log::{error, info};
-use quickjs_rusty::serde::{from_js, to_js};
+use quickjs_rusty::serde::to_js;
 use serde_json::Value;
 use std::{
     str::FromStr,
-    sync::{Arc, Mutex, RwLock},
+    sync::{Arc, Mutex},
 };
 use teloxide::{
     dispatching::{dialogue::GetChatId, UpdateFilterExt},
     dptree::{self, Handler},
     prelude::{DependencyMap, Requester},
-    types::{CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, Update},
+    types::{CallbackQuery, InlineKeyboardMarkup, Message, Update},
     Bot,
 };
 
 use crate::{
-    botscript::{self, message_info::MessageInfoBuilder, BotMessage, RunnerConfig},
+    botscript::{self, message_info::MessageInfoBuilder, BotMessage},
     commands::BotCommand,
     db::{callback_info::CallbackInfo, CallDB, DB},
     message_answerer::MessageAnswerer,
@@ -108,7 +108,7 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
         Err(_) => None,
     };
 
-    if bm.meta() == true {
+    if bm.meta() {
         if let Some(ref meta) = variant {
             user.insert_meta(&mut db, meta).await?;
         };
@@ -193,8 +193,7 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
     let literal = bm.literal().map_or("", |s| s.as_str());
 
     let ma = MessageAnswerer::new(&bot, &mut db, msg.chat.id.0);
-    ma.answer(literal, variant.as_ref().map(|v| v.as_str()), buttons)
-        .await?;
+    ma.answer(literal, variant.as_deref(), buttons).await?;
 
     Ok(())
 }

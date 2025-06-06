@@ -9,6 +9,12 @@ pub struct MessageInfoBuilder {
     inner: MessageInfo,
 }
 
+impl Default for MessageInfoBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MessageInfoBuilder {
     pub fn new() -> Self {
         Self {

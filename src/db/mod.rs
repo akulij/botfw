@@ -7,7 +7,7 @@ pub mod raw_calls;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use chrono::{DateTime, FixedOffset, Local, Utc};
+use chrono::{DateTime, Local, Utc};
 use enum_stringify::EnumStringify;
 use futures::stream::TryStreamExt;
 

@@ -178,12 +178,9 @@ pub async fn admin_command_handler(
                     }
                 };
 
-                let bi =
-                    BotInstance::new(name.clone(), token.to_string(), DEFAULT_SCRIPT.to_string())
-                        .store(&mut db)
-                        .await?;
-
-                bi
+                BotInstance::new(name.clone(), token.to_string(), DEFAULT_SCRIPT.to_string())
+                    .store(&mut db)
+                    .await?
             };
 
             bot.send_message(

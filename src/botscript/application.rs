@@ -6,9 +6,9 @@ use teloxide::Bot;
 use tokio::runtime::Handle;
 
 use crate::{
-    db::{application::Application, message_forward::MessageForward, CallDB, DB},
+    db::{application::Application, message_forward::MessageForward, DB},
     message_answerer::MessageAnswerer,
-    send_application_to_chat, BotError,
+    send_application_to_chat,
 };
 
 use super::ScriptError;

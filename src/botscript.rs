@@ -2,7 +2,7 @@ pub mod application;
 pub mod db;
 pub mod message_info;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use crate::db::raw_calls::RawCallError;
@@ -12,7 +12,6 @@ use crate::utils::parcelable::{ParcelType, Parcelable, ParcelableError, Parcelab
 use chrono::{DateTime, Days, NaiveTime, ParseError, TimeDelta, Timelike, Utc};
 use db::attach_db_obj;
 use futures::future::join_all;
-use futures::lock::MutexGuard;
 use itertools::Itertools;
 use quickjs_rusty::serde::{from_js, to_js};
 use quickjs_rusty::utils::create_empty_object;
@@ -543,7 +542,8 @@ impl BotMessage {
     pub fn update_defaults(self) -> Self {
         let bm = self;
         // if message is `start`, defaulting meta to true, if not set
-        let bm = match bm.meta {
+
+        match bm.meta {
             Some(_) => bm,
             None => match &bm.literal {
                 Some(l) if l == "start" => Self {
@@ -552,9 +552,7 @@ impl BotMessage {
                 },
                 _ => bm,
             },
-        };
-
-        bm
+        }
     }
 
     pub fn is_replace(&self) -> bool {
@@ -1062,7 +1060,7 @@ impl Runner {
 #[allow(clippy::unwrap_used)]
 #[allow(clippy::print_stdout)]
 mod tests {
-    use quickjs_rusty::{serde::from_js, OwnedJsObject};
+    use quickjs_rusty::OwnedJsObject;
     use serde_json::json;
 
     use super::*;
