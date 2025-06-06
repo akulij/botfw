@@ -53,15 +53,6 @@ pub struct Config {
     pub bot_name: String,
 }
 
-#[derive(BotCommands, Clone)]
-#[command(rename_rule = "lowercase")]
-enum UserCommands {
-    /// The first message of user
-    Start(String),
-    /// Shows this message.
-    Help,
-}
-
 trait LogMsg {
     fn log(self) -> Self;
 }
