@@ -1015,19 +1015,10 @@ impl Runner {
     }
 
     pub fn init_with_db(db: &mut DB) -> ScriptResult<Self> {
-        let context = Context::new(None)?;
-        let mut global = context.global()?;
-        attach_db_obj(&context, &mut global, db)?;
+        let mut runner = Self::init()?;
+        runner.call_attacher(|c, o| attach_db_obj(c, o, db))??;
 
-        context.add_callback("print", |a: String| {
-            print(a);
-
-            None::<bool>
-        })?;
-
-        Ok(Runner {
-            context: Arc::new(Mutex::new(context)),
-        })
+        Ok(runner)
     }
 
     pub fn call_attacher<F, R>(&mut self, f: F) -> ScriptResult<R>
