@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use crate::db::raw_calls::RawCallError;
 use crate::db::{CallDB, DbError, User, DB};
+use crate::message_answerer::MessageAnswererError;
 use crate::notify_admin;
 use crate::utils::parcelable::{ParcelType, Parcelable, ParcelableError, ParcelableResult};
 use chrono::{DateTime, Days, NaiveTime, ParseError, TimeDelta, Timelike, Utc};
@@ -45,6 +46,8 @@ pub enum ScriptError {
     RawCallError(#[from] RawCallError),
     #[error("error while locking mutex: {0:?}")]
     MutexError(String),
+    #[error("can't send message to user to user: {0:?}")]
+    MAError(#[from] MessageAnswererError),
 }
 
 #[derive(thiserror::Error, Debug)]
