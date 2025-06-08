@@ -2,14 +2,14 @@ pub mod application;
 pub mod db;
 pub mod message_info;
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
 use crate::db::raw_calls::RawCallError;
 use crate::db::{CallDB, DbError, User, DB};
 use crate::message_answerer::MessageAnswererError;
-use crate::notify_admin;
 use crate::utils::parcelable::{ParcelType, Parcelable, ParcelableError, ParcelableResult};
+use crate::{notify_admin, BotError};
 use chrono::{DateTime, Days, NaiveTime, ParseError, TimeDelta, Timelike, Utc};
 use db::attach_db_obj;
 use futures::future::join_all;
@@ -48,6 +48,23 @@ pub enum ScriptError {
     MutexError(String),
     #[error("can't send message to user to user: {0:?}")]
     MAError(#[from] MessageAnswererError),
+    #[error("other script error: {0:?}")]
+    Other(String),
+}
+
+impl From<BotError> for ScriptError {
+    fn from(value: BotError) -> Self {
+        match value {
+            crate::BotError::DBError(db_error) => ScriptError::DBError(db_error),
+            error => ScriptError::Other(format!("BotError: {error}")),
+        }
+    }
+}
+
+impl<T> From<PoisonError<T>> for ScriptError {
+    fn from(value: PoisonError<T>) -> Self {
+        Self::MutexError(format!("Can't lock Mutex in script, err: {}", value))
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
