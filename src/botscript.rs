@@ -688,8 +688,7 @@ pub enum NotificationTime {
 }
 
 impl NotificationTime {
-    pub fn when_next(&self, start_time: &DateTime<Utc>, now: &DateTime<Utc>) -> DateTime<Utc> {
-        let now = *now;
+    pub fn when_next(&self, start_time: DateTime<Utc>, now: DateTime<Utc>) -> DateTime<Utc> {
         match self {
             NotificationTime::Delta {
                 delta_hours,
@@ -697,15 +696,15 @@ impl NotificationTime {
             } => {
                 let delta = TimeDelta::minutes((delta_minutes + delta_hours * 60).into());
 
-                let mut estimation = *start_time;
-                // super non-optimal, but fun :)
-                loop {
-                    if estimation < now + Duration::from_secs(1) {
-                        estimation += delta;
-                    } else {
-                        break estimation;
-                    }
-                }
+                let secs_period = delta.num_seconds();
+                if secs_period == 0 {
+                    return now;
+                };
+
+                let diff = now - start_time;
+                let passed = diff.num_seconds().abs() % secs_period;
+
+                now - Duration::from_secs(passed as u64) + delta
             }
             NotificationTime::Specific(time) => {
                 let estimation = now;
@@ -713,13 +712,11 @@ impl NotificationTime {
                 let mut estimation = estimation
                     .with_minute(time.minutes.into())
                     .unwrap_or(estimation);
-                // super non-optimal, but fun :)
-                loop {
-                    if estimation < now {
-                        estimation = estimation + Days::new(1);
-                    } else {
-                        break estimation;
-                    }
+
+                if estimation < now {
+                    estimation + Days::new(1)
+                } else {
+                    estimation
                 }
             }
         }
@@ -878,11 +875,11 @@ impl Parcelable<BotFunction> for BotNotification {
 }
 
 impl BotNotification {
-    pub fn left_time(&self, start_time: &DateTime<Utc>, now: &DateTime<Utc>) -> Duration {
+    pub fn left_time(&self, start_time: DateTime<Utc>, now: DateTime<Utc>) -> Duration {
         let next = self.time.when_next(start_time, now);
 
         // immidate notification if time to do it passed
-        let duration = (next - now).to_std().unwrap_or(Duration::from_secs(1));
+        let duration = (next - now).to_std().unwrap_or(Duration::from_secs(0));
 
         // Rounding partitions of seconds
         Duration::from_secs(duration.as_secs())
@@ -989,19 +986,19 @@ impl RunnerConfig {
         let ordered = self
             .notifications
             .iter()
-            .filter(|f| f.left_time(&start_time, &now) > Duration::from_secs(1))
-            .sorted_by_key(|f| f.left_time(&start_time, &now))
+            .filter(|f| f.left_time(start_time, now) > Duration::from_secs(1))
+            .sorted_by_key(|f| f.left_time(start_time, now))
             .collect::<Vec<_>>();
 
         let left = match ordered.first() {
-            Some(notification) => notification.left_time(&start_time, &now),
+            Some(notification) => notification.left_time(start_time, now),
             // No notifications provided
             None => return None,
         };
         // get all that should be sent at the same time
         let notifications = ordered
             .into_iter()
-            .filter(|n| n.left_time(&start_time, &now) == left)
+            .filter(|n| n.left_time(start_time, now) == left)
             .cloned()
             .collect::<Vec<_>>();
 
@@ -1189,7 +1186,7 @@ mod tests {
         let start_time = chrono::offset::Utc::now();
         // let start_time = chrono::offset::Utc::now() + TimeDelta::try_hours(5).unwrap();
         let start_time = start_time.with_hour(13).unwrap().with_minute(23).unwrap();
-        let left = n.left_time(&start_time, &start_time);
+        let left = n.left_time(start_time, start_time);
         let secs = left.as_secs();
         let minutes = secs / 60;
         let hours = minutes / 60;
@@ -1203,6 +1200,39 @@ mod tests {
             .unwrap();
 
         let should_left = (when_should - start_time).to_std().unwrap();
+        let should_left = Duration::from_secs(should_left.as_secs());
+
+        assert_eq!(left, should_left)
+    }
+
+    #[test]
+    fn test_notification_time_nextday() {
+        let botn = json!({
+            "time": "11:00",
+            "filter": {"random": 2},
+            "message": {"text": "some"},
+        });
+        let n: BotNotification = serde_json::from_value(botn).unwrap();
+        println!("BotNotification: {n:#?}");
+        let start_time = chrono::offset::Utc::now();
+        // let start_time = chrono::offset::Utc::now() + TimeDelta::try_hours(5).unwrap();
+        let start_time = start_time.with_hour(13).unwrap().with_minute(23).unwrap();
+        let left = n.left_time(start_time, start_time);
+        let secs = left.as_secs();
+        let minutes = secs / 60;
+        let hours = minutes / 60;
+        let minutes = minutes % 60;
+        println!("Left: {hours}:{minutes}");
+
+        let when_should = chrono::offset::Utc::now()
+            .with_hour(11)
+            .unwrap()
+            .with_minute(00)
+            .unwrap();
+
+        let should_left = (when_should + TimeDelta::days(1) - start_time)
+            .to_std()
+            .unwrap();
         let should_left = Duration::from_secs(should_left.as_secs());
 
         assert_eq!(left, should_left)
