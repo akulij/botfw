@@ -179,7 +179,9 @@ async fn test_drop_media_except() {
 
 #[tokio::test]
 async fn test_get_random_users() {
-    let db = setup_db().await;
+    let mut db = setup_db().await;
+
+    let _ = db.get_or_init_user(1, "Nick").await;
 
     let users = db.get_random_users(1).await.unwrap();
     assert_eq!(users.len(), 1);
