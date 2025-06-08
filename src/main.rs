@@ -126,7 +126,7 @@ impl BotController {
         let bot = Bot::new(token);
 
         let mut runner = Runner::init_with_db(&mut db)?;
-        runner.call_attacher(|c, o| attach_user_application(c, o, &db, &bot))??;
+        runner.call_attacher(|c, o| attach_user_application(c, o, db.clone(), bot.clone()))??;
         let rc = runner.init_config(script)?;
         let runtime = Arc::new(Mutex::new(BotRuntime { rc, runner }));
 
