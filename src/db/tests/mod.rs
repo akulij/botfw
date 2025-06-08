@@ -72,6 +72,8 @@ async fn test_add_media() {
 async fn test_drop_media() {
     let mut db = setup_db().await;
 
+    let _result = db.drop_media("test_drop_media_literal").await.unwrap();
+
     let _result = db
         .add_media("test_drop_media_literal", "photo", "file_id_1", None)
         .await
