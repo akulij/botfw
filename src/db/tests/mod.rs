@@ -10,7 +10,7 @@ async fn setup_db() -> DB {
     dotenvy::dotenv().unwrap();
     let db_url = std::env::var("DATABASE_URL").unwrap();
 
-    DB::new(db_url, "gongbot".to_string()).await.unwrap()
+    DB::new(db_url, "tests".to_string()).await.unwrap()
 }
 
 #[tokio::test]
