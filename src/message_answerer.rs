@@ -8,10 +8,10 @@ use teloxide::{
     Bot,
 };
 
-use crate::db::Media;
+use crate::db::{DbError, DbResult, Media};
 use crate::{
     db::{CallDB, DB},
-    notify_admin, BotResult,
+    notify_admin,
 };
 
 macro_rules! send_media {
@@ -40,6 +40,16 @@ pub struct MessageAnswerer<'a> {
     db: &'a mut DB,
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum MessageAnswererError {
+    #[error("Failed request to DB: {0:?}")]
+    DbError(#[from] DbError),
+    #[error("Failed teloxide request: {0:?}")]
+    RequestError(#[from] teloxide::RequestError),
+}
+
+pub type MAResult<T> = Result<T, MessageAnswererError>;
+
 impl<'a> MessageAnswerer<'a> {
     pub fn new(bot: &'a Bot, db: &'a mut DB, chat_id: i64) -> Self {
         Self { bot, chat_id, db }
@@ -50,7 +60,7 @@ impl<'a> MessageAnswerer<'a> {
         literal: &str,
         variant: Option<&str>,
         is_replace: bool,
-    ) -> BotResult<String> {
+    ) -> DbResult<String> {
         let variant_text = match variant {
             Some(variant) => {
                 let value = self
@@ -81,7 +91,7 @@ impl<'a> MessageAnswerer<'a> {
         literal: &str,
         variant: Option<&str>,
         keyboard: Option<InlineKeyboardMarkup>,
-    ) -> BotResult<(i64, i32)> {
+    ) -> MAResult<(i64, i32)> {
         let text = self.get_text(literal, variant, false).await?;
         self.answer_inner(text, literal, variant, keyboard).await
     }
@@ -90,8 +100,10 @@ impl<'a> MessageAnswerer<'a> {
         self,
         text: String,
         keyboard: Option<InlineKeyboardMarkup>,
-    ) -> BotResult<(i64, i32)> {
-        self.send_message(text, keyboard).await
+    ) -> MAResult<(i64, i32)> {
+        self.send_message(text, keyboard)
+            .await
+            .map_err(MessageAnswererError::from)
     }
 
     async fn answer_inner(
@@ -100,7 +112,7 @@ impl<'a> MessageAnswerer<'a> {
         literal: &str,
         variant: Option<&str>,
         keyboard: Option<InlineKeyboardMarkup>,
-    ) -> BotResult<(i64, i32)> {
+    ) -> MAResult<(i64, i32)> {
         let media = self.db.get_media(literal).await?;
         let (chat_id, msg_id) = match media.len() {
             // just a text
@@ -119,7 +131,7 @@ impl<'a> MessageAnswerer<'a> {
         message_id: i32,
         literal: &str,
         keyboard: Option<InlineKeyboardMarkup>,
-    ) -> BotResult<()> {
+    ) -> MAResult<()> {
         let variant = self
             .db
             .get_message(self.chat_id, message_id)
@@ -127,7 +139,7 @@ impl<'a> MessageAnswerer<'a> {
             .and_then(|m| m.variant);
         let text = self.get_text(literal, variant.as_deref(), true).await?;
         let media = self.db.get_media(literal).await?;
-        let (chat_id, msg_id) = match media.len() {
+        let (_, msg_id) = match media.len() {
             // just a text
             0 => {
                 let msg =
@@ -203,7 +215,7 @@ impl<'a> MessageAnswerer<'a> {
         message_id: i32,
         literal: &str,
         variant: Option<&str>,
-    ) -> BotResult<()> {
+    ) -> DbResult<()> {
         match variant {
             Some(variant) => {
                 self.db
@@ -224,7 +236,7 @@ impl<'a> MessageAnswerer<'a> {
         &self,
         text: String,
         keyboard: Option<InlineKeyboardMarkup>,
-    ) -> BotResult<(i64, i32)> {
+    ) -> Result<(i64, i32), teloxide::RequestError> {
         let msg = self.bot.send_message(ChatId(self.chat_id), text);
         let msg = match keyboard {
             Some(kbd) => msg.reply_markup(kbd),
@@ -242,7 +254,7 @@ impl<'a> MessageAnswerer<'a> {
         media: &Media,
         text: String,
         keyboard: Option<InlineKeyboardMarkup>,
-    ) -> BotResult<(i64, i32)> {
+    ) -> Result<(i64, i32), teloxide::RequestError> {
         match media.media_type.as_str() {
             "photo" => {
                 send_media!(
@@ -270,7 +282,11 @@ impl<'a> MessageAnswerer<'a> {
         }
     }
 
-    async fn send_media_group(&self, media: Vec<Media>, text: String) -> BotResult<(i64, i32)> {
+    async fn send_media_group(
+        &self,
+        media: Vec<Media>,
+        text: String,
+    ) -> Result<(i64, i32), teloxide::RequestError> {
         let media: Vec<InputMedia> = media
             .into_iter()
             .enumerate()

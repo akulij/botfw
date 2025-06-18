@@ -1,29 +1,40 @@
+use futures::future::join_all;
 use log::{error, info};
-use quickjs_rusty::serde::{from_js, to_js};
+use quickjs_rusty::serde::to_js;
+use serde_json::Value;
 use std::{
     str::FromStr,
-    sync::{Arc, Mutex, RwLock},
+    sync::{Arc, Mutex},
 };
 use teloxide::{
     dispatching::{dialogue::GetChatId, UpdateFilterExt},
     dptree::{self, Handler},
-    prelude::DependencyMap,
-    types::{CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, Update},
+    prelude::{DependencyMap, Requester},
+    types::{CallbackQuery, InlineKeyboardMarkup, Message, Update},
     Bot,
 };
 
 use crate::{
-    botscript::{self, message_info::MessageInfoBuilder, BotMessage, RunnerConfig},
+    botscript::{self, message_info::MessageInfoBuilder, ScriptError},
     commands::BotCommand,
-    db::{CallDB, DB},
+    config::{
+        dialog::{button::ButtonLayout, message::BotMessage},
+        traits::ProviderSerialize,
+        Provider,
+    },
+    db::{callback_info::CallbackInfo, CallDB, DB},
     message_answerer::MessageAnswerer,
-    notify_admin, update_user_tg, BotError, BotResult, BotRuntime,
+    notify_admin, update_user_tg,
+    utils::callback_button,
+    BotError, BotResult, BotRuntime,
 };
 
 pub type BotHandler =
     Handler<'static, DependencyMap, BotResult<()>, teloxide::dispatching::DpHandlerDescription>;
 
-pub fn script_handler(r: Arc<Mutex<BotRuntime>>) -> BotHandler {
+type CallbackStore = CallbackInfo<Value>;
+
+pub fn script_handler<P: Provider + Send + Sync>(r: Arc<Mutex<BotRuntime<P>>>) -> BotHandler {
     let cr = r.clone();
     dptree::entry()
         .branch(
@@ -48,21 +59,50 @@ pub fn script_handler(r: Arc<Mutex<BotRuntime>>) -> BotHandler {
         )
         .branch(
             Update::filter_callback_query()
-                .filter_map(move |q: CallbackQuery| {
-                    q.data.and_then(|data| {
-                        let r = std::sync::Arc::clone(&cr);
+                .filter_map_async(move |q: CallbackQuery, mut db: DB| {
+                    let r = Arc::clone(&cr);
+                    async move {
+                        let data = match q.data {
+                            Some(data) => data,
+                            None => return None,
+                        };
+
+                        let ci = match CallbackStore::get(&mut db, &data).await {
+                            Ok(ci) => ci,
+                            Err(err) => {
+                                notify_admin(&format!(
+                                    "Failed to get callback from CallbackInfo, err: {err}"
+                                ))
+                                .await;
+                                return None;
+                            }
+                        };
+                        let ci = match ci {
+                            Some(ci) => ci,
+                            None => return None,
+                        };
+
+                        let data = match ci.literal {
+                            Some(data) => data,
+                            None => return None,
+                        };
+
                         let r = r.lock().expect("RwLock lock on commands map failed");
                         let rc = &r.rc;
-
                         rc.get_callback_message(&data)
-                    })
+                    }
                 })
                 .endpoint(handle_callback),
         )
 }
 
-async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -> BotResult<()> {
-    info!("Eval BM: {:?}", bm);
+async fn handle_botmessage<P: Provider>(
+    bot: Bot,
+    mut db: DB,
+    bm: BotMessage<P>,
+    msg: Message,
+) -> BotResult<()> {
+    // info!("Eval BM: {:?}", bm);
     let tguser = match msg.from.clone() {
         Some(user) => user,
         None => return Ok(()), // do nothing, cause its not usecase of function
@@ -78,7 +118,7 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
         Err(_) => None,
     };
 
-    if bm.meta() == true {
+    if bm.meta() {
         if let Some(ref meta) = variant {
             user.insert_meta(&mut db, meta).await?;
         };
@@ -86,31 +126,34 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
 
     let is_propagate: bool = match bm.get_handler() {
         Some(handler) => 'prop: {
-            let ctx = match handler.context() {
-                Some(ctx) => ctx,
-                // falling back to propagation
-                None => break 'prop true,
-            };
-            let jsuser = to_js(ctx, &tguser).unwrap();
+            // let ctx = match handler.context() {
+            //     Some(ctx) => ctx,
+            //     // falling back to propagation
+            //     None => break 'prop true,
+            // };
+            // let jsuser = to_js(ctx, &tguser).map_err(ScriptError::from)?;
+            let puser = <P::Value as ProviderSerialize>::se_from(&tguser).unwrap();
             let mi = MessageInfoBuilder::new()
                 .set_variant(variant.clone())
                 .build();
-            let mi = to_js(ctx, &mi).unwrap();
-            info!(
-                "Calling handler {:?} with msg literal: {:?}",
-                handler,
-                bm.literal()
-            );
-            match handler.call_args(vec![jsuser, mi]) {
+            // let mi = to_js(ctx, &mi).map_err(ScriptError::from)?;
+            let pmi = <P::Value as ProviderSerialize>::se_from(&mi).unwrap();
+            // info!(
+            //     "Calling handler {:?} with msg literal: {:?}",
+            //     handler,
+            //     bm.literal()
+            // );
+            match handler.call_args(vec![puser, pmi]) {
                 Ok(v) => {
-                    if v.is_bool() {
-                        v.to_bool().unwrap_or(true)
-                    } else if v.is_int() {
-                        v.to_int().unwrap_or(1) != 0
-                    } else {
-                        // falling back to propagation
-                        true
-                    }
+                    todo!()
+                    // if v.is_bool() {
+                    //     v.to_bool().unwrap_or(true)
+                    // } else if v.is_int() {
+                    //     v.to_int().unwrap_or(1) != 0
+                    // } else {
+                    //     // falling back to propagation
+                    //     true
+                    // }
                 }
                 Err(err) => {
                     error!("Failed to get return of handler, err: {err}");
@@ -126,36 +169,56 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
         return Ok(());
     }
 
-    let buttons = bm
-        .resolve_buttons(&mut db)
-        .await?
-        .map(|buttons| InlineKeyboardMarkup {
-            inline_keyboard: buttons
-                .iter()
-                .map(|r| {
-                    r.iter()
-                        .map(|b| match b {
-                            botscript::ButtonLayout::Callback {
-                                name,
-                                literal: _,
-                                callback,
-                            } => InlineKeyboardButton::callback(name, callback),
-                        })
-                        .collect()
-                })
-                .collect(),
-        });
+    let button_db = db.clone();
+    let buttons = bm.resolve_buttons(&mut db).await?.map(async |buttons| {
+        join_all(buttons.iter().map(async |r| {
+            join_all(r.iter().map(async |b| {
+                match b {
+                    ButtonLayout::Callback {
+                        name,
+                        literal: _,
+                        callback,
+                    } => {
+                        callback_button(
+                            name,
+                            callback.to_string(),
+                            None::<bool>,
+                            &mut button_db.clone(),
+                        )
+                        .await
+                    }
+                }
+            }))
+            .await
+            .into_iter()
+            .collect::<Result<_, _>>()
+        }))
+        .await
+        .into_iter()
+        .collect::<Result<_, _>>()
+    });
+    let buttons = match buttons {
+        Some(b) => Some(InlineKeyboardMarkup {
+            inline_keyboard: b.await?,
+        }),
+        None => None,
+    };
     let literal = bm.literal().map_or("", |s| s.as_str());
 
     let ma = MessageAnswerer::new(&bot, &mut db, msg.chat.id.0);
-    ma.answer(literal, variant.as_ref().map(|v| v.as_str()), buttons)
-        .await?;
+    ma.answer(literal, variant.as_deref(), buttons).await?;
 
     Ok(())
 }
 
-async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery) -> BotResult<()> {
-    info!("Eval BM: {:?}", bm);
+async fn handle_callback<P: Provider>(
+    bot: Bot,
+    mut db: DB,
+    bm: BotMessage<P>,
+    q: CallbackQuery,
+) -> BotResult<()> {
+    bot.answer_callback_query(&q.id).await?;
+    // info!("Eval BM: {:?}", bm);
     let tguser = q.from.clone();
     let user = db
         .get_or_init_user(tguser.id.0 as i64, &tguser.first_name)
@@ -163,36 +226,24 @@ async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery)
     let user = update_user_tg(user, &tguser);
     user.update_user(&mut db).await?;
 
-    println!("Is handler set: {}", bm.get_handler().is_some());
     let is_propagate: bool = match bm.get_handler() {
         Some(handler) => 'prop: {
-            let ctx = match handler.context() {
-                Some(ctx) => ctx,
-                // falling back to propagation
-                None => break 'prop true,
-            };
-            let jsuser = to_js(ctx, &tguser).unwrap();
+            let puser = <P::Value as ProviderSerialize>::se_from(&tguser).unwrap();
             let mi = MessageInfoBuilder::new().build();
-            let mi = to_js(ctx, &mi).unwrap();
-            println!(
-                "Calling handler {:?} with msg literal: {:?}",
-                handler,
-                bm.literal()
-            );
-            match handler.call_args(vec![jsuser, mi]) {
+            let pmi = <P::Value as ProviderSerialize>::se_from(&mi).unwrap();
+            match handler.call_args(vec![puser, pmi]) {
                 Ok(v) => {
-                    println!("Ok branch, got value: {v:?}");
-                    if v.is_bool() {
-                        v.to_bool().unwrap_or(true)
-                    } else if v.is_int() {
-                        v.to_int().unwrap_or(1) != 0
-                    } else {
-                        // falling back to propagation
-                        true
-                    }
+                    todo!()
+                    // if v.is_bool() {
+                    //     v.to_bool().unwrap_or(true)
+                    // } else if v.is_int() {
+                    //     v.to_int().unwrap_or(1) != 0
+                    // } else {
+                    //     // falling back to propagation
+                    //     true
+                    // }
                 }
                 Err(err) => {
-                    println!("ERR branch");
                     error!("Failed to get return of handler, err: {err}");
                     // falling back to propagation
                     true
@@ -206,25 +257,40 @@ async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery)
         return Ok(());
     }
 
-    let buttons = bm
-        .resolve_buttons(&mut db)
-        .await?
-        .map(|buttons| InlineKeyboardMarkup {
-            inline_keyboard: buttons
-                .iter()
-                .map(|r| {
-                    r.iter()
-                        .map(|b| match b {
-                            botscript::ButtonLayout::Callback {
-                                name,
-                                literal: _,
-                                callback,
-                            } => InlineKeyboardButton::callback(name, callback),
-                        })
-                        .collect()
-                })
-                .collect(),
-        });
+    let button_db = db.clone();
+    let buttons = bm.resolve_buttons(&mut db).await?.map(async |buttons| {
+        join_all(buttons.iter().map(async |r| {
+            join_all(r.iter().map(async |b| {
+                match b {
+                    ButtonLayout::Callback {
+                        name,
+                        literal: _,
+                        callback,
+                    } => {
+                        callback_button(
+                            name,
+                            callback.to_string(),
+                            None::<bool>,
+                            &mut button_db.clone(),
+                        )
+                        .await
+                    }
+                }
+            }))
+            .await
+            .into_iter()
+            .collect::<Result<_, _>>()
+        }))
+        .await
+        .into_iter()
+        .collect::<Result<_, _>>()
+    });
+    let buttons = match buttons {
+        Some(b) => Some(InlineKeyboardMarkup {
+            inline_keyboard: b.await?,
+        }),
+        None => None,
+    };
     let literal = bm.literal().map_or("", |s| s.as_str());
 
     let (chat_id, msg_id) = {
@@ -252,7 +318,7 @@ async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery)
                 Ok(msg_id) => {
                     ma.replace_message(msg_id, literal, buttons).await?;
                 }
-                Err(err) => {
+                Err(_) => {
                     ma.answer(literal, None, buttons).await?;
                 }
             };

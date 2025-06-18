@@ -3,24 +3,26 @@ pub mod bot_handler;
 pub mod bot_manager;
 pub mod botscript;
 pub mod commands;
+pub mod config;
 pub mod db;
 pub mod handlers;
 pub mod message_answerer;
 pub mod mongodb_storage;
+pub mod runtimes;
 pub mod utils;
 
 use bot_manager::BotManager;
 use botscript::application::attach_user_application;
-use botscript::{BotMessage, Runner, RunnerConfig, ScriptError, ScriptResult};
+use botscript::{Runner, ScriptError, ScriptResult};
+use config::result::ConfigError;
+use config::{Provider, RunnerConfig};
 use db::application::Application;
 use db::bots::BotInstance;
 use db::callback_info::CallbackInfo;
-use db::message_forward::MessageForward;
 use handlers::admin::admin_handler;
-use log::{error, info, warn};
-use message_answerer::MessageAnswerer;
-use std::sync::{Arc, Mutex, RwLock};
-use utils::create_callback_button;
+use log::{error, info};
+use message_answerer::MessageAnswererError;
+use std::sync::{Arc, Mutex};
 
 use crate::db::{CallDB, DB};
 use crate::mongodb_storage::MongodbStorage;
@@ -29,13 +31,8 @@ use db::DbError;
 use envconfig::Envconfig;
 use serde::{Deserialize, Serialize};
 use teloxide::dispatching::dialogue::serializer::Json;
-use teloxide::dispatching::dialogue::{GetChatId, Serializer};
-use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup};
-use teloxide::{
-    payloads::SendMessageSetters,
-    prelude::*,
-    utils::{command::BotCommands, render::RenderMessageTextHelper},
-};
+use teloxide::dispatching::dialogue::Serializer;
+use teloxide::prelude::*;
 
 type BotDialogue = Dialogue<State, MongodbStorage<Json>>;
 
@@ -51,15 +48,6 @@ pub struct Config {
     pub admin_id: u64,
     #[envconfig(from = "BOT_NAME")]
     pub bot_name: String,
-}
-
-#[derive(BotCommands, Clone)]
-#[command(rename_rule = "lowercase")]
-enum UserCommands {
-    /// The first message of user
-    Start(String),
-    /// Shows this message.
-    Help,
 }
 
 trait LogMsg {
@@ -107,11 +95,11 @@ pub struct BotController {
     pub runtime: Arc<Mutex<BotRuntime>>,
 }
 
-pub struct BotRuntime {
-    pub rc: RunnerConfig,
+pub struct BotRuntime<P: Provider> {
+    pub rc: RunnerConfig<P>,
     pub runner: Runner,
 }
-unsafe impl Send for BotRuntime {}
+unsafe impl<P: Provider> Send for BotRuntime<P> {}
 
 impl Drop for BotController {
     fn drop(&mut self) {
@@ -142,7 +130,7 @@ impl BotController {
         let bot = Bot::new(token);
 
         let mut runner = Runner::init_with_db(&mut db)?;
-        runner.call_attacher(|c, o| attach_user_application(c, o, &db, &bot))??;
+        // runner.call_attacher(|c, o| attach_user_application(c, o, db.clone(), bot.clone()))??;
         let rc = runner.init_config(script)?;
         let runtime = Arc::new(Mutex::new(BotRuntime { rc, runner }));
 
@@ -162,6 +150,8 @@ pub enum BotError {
     ScriptError(#[from] ScriptError),
     IoError(#[from] std::io::Error),
     RwLockError(String),
+    MAError(#[from] MessageAnswererError),
+    ConfigError(#[from] ConfigError),
 }
 
 pub type BotResult<T> = Result<T, BotError>;
@@ -181,6 +171,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut db = DB::init(&config.db_url, config.bot_name.to_owned()).await?;
 
     BotInstance::restart_all(&mut db, false).await?;
+    // if we can't get info for main bot, we should stop anyway
+    #[allow(clippy::unwrap_used)]
     let bm = BotManager::with(
         async || {
             let config = config.clone();
@@ -197,167 +189,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             BotInstance::restart_all(&mut db, false).await.unwrap();
             std::iter::once(bi).chain(instances)
         },
-        async |bi| vec![admin_handler()].into_iter(),
+        async |_| vec![admin_handler()].into_iter(),
     );
 
-    bm.dispatch(&mut db).await;
-}
-
-async fn botscript_command_handler(
-    bot: Bot,
-    mut db: DB,
-    bm: BotMessage,
-    msg: Message,
-) -> BotResult<()> {
-    info!("Eval BM: {:?}", bm);
-    let buttons = bm
-        .resolve_buttons(&mut db)
-        .await?
-        .map(|buttons| InlineKeyboardMarkup {
-            inline_keyboard: buttons
-                .iter()
-                .map(|r| {
-                    r.iter()
-                        .map(|b| match b {
-                            botscript::ButtonLayout::Callback {
-                                name,
-                                literal: _,
-                                callback,
-                            } => InlineKeyboardButton::callback(name, callback),
-                        })
-                        .collect()
-                })
-                .collect(),
-        });
-    let literal = bm.literal().map_or("", |s| s.as_str());
-
-    let ma = MessageAnswerer::new(&bot, &mut db, msg.chat.id.0);
-    ma.answer(literal, None, buttons).await?;
-
-    Ok(())
-}
-
-async fn callback_handler(bot: Bot, mut db: DB, q: CallbackQuery) -> BotResult<()> {
-    bot.answer_callback_query(&q.id).await?;
-
-    let data = match q.data {
-        Some(ref data) => data,
-        None => {
-            // not really our case to handle
-            return Ok(());
-        }
-    };
-
-    let callback = match CallbackStore::get_callback(&mut db, data).await? {
-        Some(callback) => callback,
-        None => {
-            warn!("Not found callback for data: {data}");
-            // doing this silently beacuse end user shouldn't know about backend internal data
-            return Ok(());
-        }
-    };
-
-    match callback {
-        Callback::MoreInfo => {
-            let keyboard = Some(single_button_markup!(
-                create_callback_button("go_home", Callback::GoHome, &mut db).await?
-            ));
-
-            let chat_id = q.chat_id().map(|i| i.0).unwrap_or(q.from.id.0 as i64);
-            let message_id = q.message.map_or_else(
-                || {
-                    Err(BotError::MsgTooOld(
-                        "Failed to get message id, probably message too old".to_string(),
-                    ))
-                },
-                |m| Ok(m.id().0),
-            )?;
-            MessageAnswerer::new(&bot, &mut db, chat_id)
-                .replace_message(message_id, "more_info_msg", keyboard)
-                .await?
-        }
-        Callback::ProjectPage { id } => {
-            let nextproject = match db
-                .get_literal_value(&format!("project_{}_msg", id + 1))
-                .await?
-                .unwrap_or("emptyproject".into())
-                .as_str()
-            {
-                "end" | "empty" | "none" => None,
-                _ => Some(
-                    create_callback_button(
-                        "next_project",
-                        Callback::ProjectPage { id: id + 1 },
-                        &mut db,
-                    )
-                    .await?,
-                ),
-            };
-            let prevproject = match id.wrapping_sub(1) {
-                0 => None,
-                _ => Some(
-                    create_callback_button(
-                        "prev_project",
-                        Callback::ProjectPage {
-                            id: id.wrapping_sub(1),
-                        },
-                        &mut db,
-                    )
-                    .await?,
-                ),
-            };
-            let keyboard = buttons_markup!(
-                [prevproject, nextproject].into_iter().flatten(),
-                [create_callback_button("go_home", Callback::GoHome, &mut db).await?]
-            );
-
-            let chat_id = q.chat_id().map(|i| i.0).unwrap_or(q.from.id.0 as i64);
-            let message_id = q.message.map_or_else(
-                || {
-                    Err(BotError::MsgTooOld(
-                        "Failed to get message id, probably message too old".to_string(),
-                    ))
-                },
-                |m| Ok(m.id().0),
-            )?;
-            MessageAnswerer::new(&bot, &mut db, chat_id)
-                .replace_message(message_id, &format!("project_{}_msg", id), Some(keyboard))
-                .await?
-        }
-        Callback::GoHome => {
-            let keyboard = make_start_buttons(&mut db).await?;
-
-            let chat_id = q.chat_id().map(|i| i.0).unwrap_or(q.from.id.0 as i64);
-            let message_id = q.message.map_or_else(
-                || {
-                    Err(BotError::MsgTooOld(
-                        "Failed to get message id, probably message too old".to_string(),
-                    ))
-                },
-                |m| Ok(m.id().0),
-            )?;
-            MessageAnswerer::new(&bot, &mut db, chat_id)
-                .replace_message(message_id, "start", Some(keyboard))
-                .await?
-        }
-        Callback::LeaveApplication => {
-            let application = Application::new(q.from.clone()).store(&mut db).await?;
-            let msg = send_application_to_chat(&bot, &mut db, &application).await?;
-
-            let (chat_id, msg_id) = MessageAnswerer::new(&bot, &mut db, q.from.id.0 as i64)
-                .answer("left_application_msg", None, None)
-                .await?;
-            MessageForward::new(msg.chat.id.0, msg.id.0, chat_id, msg_id, false)
-                .store(&mut db)
-                .await?;
-        }
-        Callback::AskQuestion => {
-            MessageAnswerer::new(&bot, &mut db, q.from.id.0 as i64)
-                .answer("ask_question_msg", None, None)
-                .await?;
-        }
-    };
-
+    bm.dispatch(&mut db).await?;
     Ok(())
 }
 
@@ -385,9 +220,9 @@ async fn send_application_to_chat(
                 app.from
             ))
             .await;
-            return Err(BotError::AdminMisconfiguration(format!(
-                "admin forget to set support_chat_id"
-            )));
+            return Err(BotError::AdminMisconfiguration(
+                "admin forget to set support_chat_id".to_string(),
+            ));
         }
     };
     let msg = match db.get_literal_value("application_format").await? {
@@ -403,9 +238,9 @@ async fn send_application_to_chat(
             ),
         None => {
             notify_admin("format for support_chat_id is not set").await;
-            return Err(BotError::AdminMisconfiguration(format!(
-                "admin forget to set application_format"
-            )));
+            return Err(BotError::AdminMisconfiguration(
+                "admin forget to set application_format".to_string(),
+            ));
         }
     };
 
@@ -429,76 +264,6 @@ async fn notify_admin(text: &str) {
             error!("notify_admin: Failed to send message to admin, WHATS WRONG???, err: {err}");
         }
     }
-}
-
-async fn user_command_handler(
-    mut db: DB,
-    bot: Bot,
-    msg: Message,
-    cmd: UserCommands,
-) -> BotResult<()> {
-    let tguser = match msg.from.clone() {
-        Some(user) => user,
-        None => return Ok(()), // do nothing, cause its not usecase of function
-    };
-    let user = db
-        .get_or_init_user(tguser.id.0 as i64, &tguser.first_name)
-        .await?;
-    let user = update_user_tg(user, &tguser);
-    user.update_user(&mut db).await?;
-    info!(
-        "MSG: {}",
-        msg.html_text().unwrap_or("|EMPTY_MESSAGE|".into())
-    );
-    match cmd {
-        UserCommands::Start(meta) => {
-            if !meta.is_empty() {
-                user.insert_meta(&mut db, &meta).await?;
-            }
-            let variant = match meta.as_str() {
-                "" => None,
-                variant => Some(variant),
-            };
-            let mut db2 = db.clone();
-            MessageAnswerer::new(&bot, &mut db, msg.chat.id.0)
-                .answer("start", variant, Some(make_start_buttons(&mut db2).await?))
-                .await?;
-            Ok(())
-        }
-        UserCommands::Help => {
-            bot.send_message(msg.chat.id, UserCommands::descriptions().to_string())
-                .await?;
-            Ok(())
-        }
-    }
-}
-
-async fn make_start_buttons(db: &mut DB) -> BotResult<InlineKeyboardMarkup> {
-    let mut buttons: Vec<Vec<InlineKeyboardButton>> = Vec::new();
-    buttons.push(vec![
-        create_callback_button("show_projects", Callback::ProjectPage { id: 1 }, db).await?,
-    ]);
-    buttons.push(vec![
-        create_callback_button("more_info", Callback::MoreInfo, db).await?,
-    ]);
-    buttons.push(vec![
-        create_callback_button("leave_application", Callback::LeaveApplication, db).await?,
-    ]);
-    buttons.push(vec![
-        create_callback_button("ask_question", Callback::AskQuestion, db).await?,
-    ]);
-
-    Ok(InlineKeyboardMarkup::new(buttons))
-}
-
-async fn echo(bot: Bot, msg: Message) -> BotResult<()> {
-    if let Some(photo) = msg.photo() {
-        info!("File ID: {}", photo[0].file.id);
-    }
-    bot.send_message(msg.chat.id, msg.html_text().unwrap_or("UNWRAP".into()))
-        .parse_mode(teloxide::types::ParseMode::Html)
-        .await?;
-    Ok(())
 }
 
 fn update_user_tg(user: db::User, tguser: &teloxide::types::User) -> db::User {

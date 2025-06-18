@@ -10,7 +10,7 @@ async fn setup_db() -> DB {
     dotenvy::dotenv().unwrap();
     let db_url = std::env::var("DATABASE_URL").unwrap();
 
-    DB::new(db_url, "gongbot".to_string()).await.unwrap()
+    DB::new(db_url, "tests".to_string()).await.unwrap()
 }
 
 #[tokio::test]
@@ -71,6 +71,8 @@ async fn test_add_media() {
 #[tokio::test]
 async fn test_drop_media() {
     let mut db = setup_db().await;
+
+    let _result = db.drop_media("test_drop_media_literal").await.unwrap();
 
     let _result = db
         .add_media("test_drop_media_literal", "photo", "file_id_1", None)
@@ -178,6 +180,8 @@ async fn test_drop_media_except() {
 #[tokio::test]
 async fn test_get_random_users() {
     let mut db = setup_db().await;
+
+    let _ = db.get_or_init_user(1, "Nick").await;
 
     let users = db.get_random_users(1).await.unwrap();
     assert_eq!(users.len(), 1);

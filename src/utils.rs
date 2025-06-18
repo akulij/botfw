@@ -66,9 +66,26 @@ where
     ))
 }
 
+pub async fn callback_button<C, D>(
+    name: &str,
+    callback_name: String,
+    callback_data: C,
+    db: &mut D,
+) -> BotResult<InlineKeyboardButton>
+where
+    C: Serialize + for<'a> Deserialize<'a> + Send + Sync,
+    D: CallDB + Send + Sync,
+{
+    let ci = CallbackInfo::new_with_literal(callback_data, callback_name)
+        .store(db)
+        .await?;
+
+    Ok(InlineKeyboardButton::callback(name, ci.get_id()))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::*;
+
     use teloxide::types::InlineKeyboardButton;
     use teloxide::types::InlineKeyboardMarkup;
 

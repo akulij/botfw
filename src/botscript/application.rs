@@ -1,14 +1,11 @@
-use std::sync::RwLock;
-
-use log::info;
 use quickjs_rusty::{context::Context, serde::from_js, OwnedJsObject};
 use teloxide::Bot;
 use tokio::runtime::Handle;
 
 use crate::{
-    db::{application::Application, message_forward::MessageForward, CallDB, DB},
+    db::{application::Application, message_forward::MessageForward, DB},
     message_answerer::MessageAnswerer,
-    send_application_to_chat, BotError,
+    send_application_to_chat,
 };
 
 use super::ScriptError;
@@ -16,66 +13,42 @@ use super::ScriptError;
 pub fn attach_user_application(
     c: &Context,
     o: &mut OwnedJsObject,
-    db: &DB,
-    bot: &Bot,
+    db: DB,
+    bot: Bot,
 ) -> Result<(), ScriptError> {
-    let db: std::sync::Arc<RwLock<DB>> = std::sync::Arc::new(RwLock::new(db.clone()));
-    let dbbox = Box::new(db.clone());
-    let db: &'static _ = Box::leak(dbbox);
-
-    let bot: std::sync::Arc<RwLock<Bot>> = std::sync::Arc::new(RwLock::new(bot.clone()));
-    let botbox = Box::new(bot.clone());
-    let bot: &'static _ = Box::leak(botbox);
+    // To guarantee that closure is valid if thread panics
+    let db: std::sync::Mutex<DB> = std::sync::Mutex::new(db);
+    let bot: std::sync::Mutex<Bot> = std::sync::Mutex::new(bot);
 
     let user_application =
         c.create_callback(move |q: OwnedJsObject| -> Result<_, ScriptError> {
-            println!("user_application is called");
-            let db = db.clone();
+            let mut db = { db.lock().map_err(ScriptError::from)?.clone() };
+            let bot = { bot.lock().map_err(ScriptError::from)?.clone() };
             let user: teloxide::types::User = match from_js(q.context(), &q) {
                 Ok(q) => q,
                 Err(_) => todo!(),
             };
 
-            let application = futures::executor::block_on(
-                Application::new(user.clone()).store_db(&mut db.write().unwrap()),
-            )?;
-            println!("there1");
+            let application =
+                futures::executor::block_on(Application::new(user.clone()).store_db(&mut db))?;
 
-            let db2 = db.clone();
-            let msg = tokio::task::block_in_place(move || {
-                Handle::current().block_on(async move {
-                    send_application_to_chat(
-                        &bot.read().unwrap(),
-                        &mut db2.write().unwrap(),
-                        &application,
-                    )
-                    .await
-                })
+            let msg = tokio::task::block_in_place(|| {
+                Handle::current()
+                    .block_on(async { send_application_to_chat(&bot, &mut db, &application).await })
             });
-            println!("there2");
-            let msg = match msg {
-                Ok(msg) => msg,
-                Err(err) => {
-                    info!("Got err: {err}");
-                    return Err(ScriptError::MutexError("🤦‍♂️".to_string()));
-                }
-            };
+            let msg = msg.map_err(ScriptError::from)?;
 
-            let (chat_id, msg_id) = futures::executor::block_on(
-                MessageAnswerer::new(
-                    &bot.read().unwrap(),
-                    &mut db.write().unwrap(),
-                    user.id.0 as i64,
-                )
-                .answer("left_application_msg", None, None),
-            )
-            .unwrap();
-            println!("there3");
+            let (chat_id, msg_id) = tokio::task::block_in_place(|| {
+                Handle::current().block_on(async {
+                    MessageAnswerer::new(&bot, &mut db, user.id.0 as i64)
+                        .answer("left_application_msg", None, None)
+                        .await
+                })
+            })?;
             futures::executor::block_on(
                 MessageForward::new(msg.chat.id.0, msg.id.0, chat_id, msg_id, false)
-                    .store_db(&mut db.write().unwrap()),
+                    .store_db(&mut db),
             )?;
-            println!("there4");
 
             let ret = true;
             Ok(ret)

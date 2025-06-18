@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use itertools::Itertools;
 use log::{info, warn};
 use std::time::Duration;
@@ -19,7 +17,7 @@ use crate::db::bots::BotInstance;
 use crate::db::message_forward::MessageForward;
 use crate::db::{CallDB, DB};
 use crate::mongodb_storage::MongodbStorage;
-use crate::{BotDialogue, BotError, BotResult, CallbackStore, State};
+use crate::{notify_admin, BotDialogue, BotError, BotResult, CallbackStore, State};
 
 pub fn admin_handler() -> BotHandler {
     dptree::entry()
@@ -105,18 +103,28 @@ async fn newscript_handler(bot: Bot, mut db: DB, msg: Message, name: String) -> 
                     let mut stream = bot.download_file_stream(&file.path);
                     let mut buf: Vec<u8> = Vec::new();
                     while let Some(bytes) = stream.next().await {
-                        let mut bytes = bytes.unwrap().to_vec();
+                        let mut bytes = match bytes {
+                            Ok(bytes) => bytes.to_vec(),
+                            Err(err) => {
+                                notify_admin(&format!(
+                                    "Failed to download file: {}, err: {err}",
+                                    file.path
+                                ))
+                                .await;
+                                return Ok(());
+                            }
+                        };
                         buf.append(&mut bytes);
                     }
-                    let script = match String::from_utf8(buf) {
+
+                    match String::from_utf8(buf) {
                         Ok(s) => s,
                         Err(err) => {
                             warn!("Failed to parse buf to string, err: {err}");
                             bot.send_message(msg.chat.id, format!("Failed to Convert file to script: file is not UTF-8, err: {err}")).await?;
                             return Ok(());
                         }
-                    };
-                    script
+                    }
                 }
                 _ => todo!(),
             }
@@ -129,7 +137,7 @@ async fn newscript_handler(bot: Bot, mut db: DB, msg: Message, name: String) -> 
         None => {
             bot.send_message(
                 msg.chat.id,
-                format!("Failed to set script, possibly bots name is incorrent"),
+                "Failed to set script, possibly bots name is incorrent".to_string(),
             )
             .await?;
             return Ok(());
