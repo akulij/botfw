@@ -15,8 +15,13 @@ use teloxide::{
 };
 
 use crate::{
-    botscript::{self, message_info::MessageInfoBuilder, BotMessage, ScriptError},
+    botscript::{self, message_info::MessageInfoBuilder, ScriptError},
     commands::BotCommand,
+    config::{
+        dialog::{button::ButtonLayout, message::BotMessage},
+        traits::ProviderSerialize,
+        Provider,
+    },
     db::{callback_info::CallbackInfo, CallDB, DB},
     message_answerer::MessageAnswerer,
     notify_admin, update_user_tg,
@@ -29,7 +34,7 @@ pub type BotHandler =
 
 type CallbackStore = CallbackInfo<Value>;
 
-pub fn script_handler(r: Arc<Mutex<BotRuntime>>) -> BotHandler {
+pub fn script_handler<P: Provider + Send + Sync>(r: Arc<Mutex<BotRuntime<P>>>) -> BotHandler {
     let cr = r.clone();
     dptree::entry()
         .branch(
@@ -91,8 +96,13 @@ pub fn script_handler(r: Arc<Mutex<BotRuntime>>) -> BotHandler {
         )
 }
 
-async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -> BotResult<()> {
-    info!("Eval BM: {:?}", bm);
+async fn handle_botmessage<P: Provider>(
+    bot: Bot,
+    mut db: DB,
+    bm: BotMessage<P>,
+    msg: Message,
+) -> BotResult<()> {
+    // info!("Eval BM: {:?}", bm);
     let tguser = match msg.from.clone() {
         Some(user) => user,
         None => return Ok(()), // do nothing, cause its not usecase of function
@@ -116,31 +126,34 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
 
     let is_propagate: bool = match bm.get_handler() {
         Some(handler) => 'prop: {
-            let ctx = match handler.context() {
-                Some(ctx) => ctx,
-                // falling back to propagation
-                None => break 'prop true,
-            };
-            let jsuser = to_js(ctx, &tguser).map_err(ScriptError::from)?;
+            // let ctx = match handler.context() {
+            //     Some(ctx) => ctx,
+            //     // falling back to propagation
+            //     None => break 'prop true,
+            // };
+            // let jsuser = to_js(ctx, &tguser).map_err(ScriptError::from)?;
+            let puser = <P::Value as ProviderSerialize>::se_from(&tguser).unwrap();
             let mi = MessageInfoBuilder::new()
                 .set_variant(variant.clone())
                 .build();
-            let mi = to_js(ctx, &mi).map_err(ScriptError::from)?;
-            info!(
-                "Calling handler {:?} with msg literal: {:?}",
-                handler,
-                bm.literal()
-            );
-            match handler.call_args(vec![jsuser, mi]) {
+            // let mi = to_js(ctx, &mi).map_err(ScriptError::from)?;
+            let pmi = <P::Value as ProviderSerialize>::se_from(&mi).unwrap();
+            // info!(
+            //     "Calling handler {:?} with msg literal: {:?}",
+            //     handler,
+            //     bm.literal()
+            // );
+            match handler.call_args(vec![puser, pmi]) {
                 Ok(v) => {
-                    if v.is_bool() {
-                        v.to_bool().unwrap_or(true)
-                    } else if v.is_int() {
-                        v.to_int().unwrap_or(1) != 0
-                    } else {
-                        // falling back to propagation
-                        true
-                    }
+                    todo!()
+                    // if v.is_bool() {
+                    //     v.to_bool().unwrap_or(true)
+                    // } else if v.is_int() {
+                    //     v.to_int().unwrap_or(1) != 0
+                    // } else {
+                    //     // falling back to propagation
+                    //     true
+                    // }
                 }
                 Err(err) => {
                     error!("Failed to get return of handler, err: {err}");
@@ -161,7 +174,7 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
         join_all(buttons.iter().map(async |r| {
             join_all(r.iter().map(async |b| {
                 match b {
-                    botscript::ButtonLayout::Callback {
+                    ButtonLayout::Callback {
                         name,
                         literal: _,
                         callback,
@@ -198,9 +211,14 @@ async fn handle_botmessage(bot: Bot, mut db: DB, bm: BotMessage, msg: Message) -
     Ok(())
 }
 
-async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery) -> BotResult<()> {
+async fn handle_callback<P: Provider>(
+    bot: Bot,
+    mut db: DB,
+    bm: BotMessage<P>,
+    q: CallbackQuery,
+) -> BotResult<()> {
     bot.answer_callback_query(&q.id).await?;
-    info!("Eval BM: {:?}", bm);
+    // info!("Eval BM: {:?}", bm);
     let tguser = q.from.clone();
     let user = db
         .get_or_init_user(tguser.id.0 as i64, &tguser.first_name)
@@ -210,24 +228,20 @@ async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery)
 
     let is_propagate: bool = match bm.get_handler() {
         Some(handler) => 'prop: {
-            let ctx = match handler.context() {
-                Some(ctx) => ctx,
-                // falling back to propagation
-                None => break 'prop true,
-            };
-            let jsuser = to_js(ctx, &tguser).map_err(ScriptError::from)?;
+            let puser = <P::Value as ProviderSerialize>::se_from(&tguser).unwrap();
             let mi = MessageInfoBuilder::new().build();
-            let mi = to_js(ctx, &mi).map_err(ScriptError::from)?;
-            match handler.call_args(vec![jsuser, mi]) {
+            let pmi = <P::Value as ProviderSerialize>::se_from(&mi).unwrap();
+            match handler.call_args(vec![puser, pmi]) {
                 Ok(v) => {
-                    if v.is_bool() {
-                        v.to_bool().unwrap_or(true)
-                    } else if v.is_int() {
-                        v.to_int().unwrap_or(1) != 0
-                    } else {
-                        // falling back to propagation
-                        true
-                    }
+                    todo!()
+                    // if v.is_bool() {
+                    //     v.to_bool().unwrap_or(true)
+                    // } else if v.is_int() {
+                    //     v.to_int().unwrap_or(1) != 0
+                    // } else {
+                    //     // falling back to propagation
+                    //     true
+                    // }
                 }
                 Err(err) => {
                     error!("Failed to get return of handler, err: {err}");
@@ -248,7 +262,7 @@ async fn handle_callback(bot: Bot, mut db: DB, bm: BotMessage, q: CallbackQuery)
         join_all(buttons.iter().map(async |r| {
             join_all(r.iter().map(async |b| {
                 match b {
-                    botscript::ButtonLayout::Callback {
+                    ButtonLayout::Callback {
                         name,
                         literal: _,
                         callback,

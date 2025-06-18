@@ -253,6 +253,17 @@ pub trait CallDB {
         Ok(users.find(doc! {}).await?.try_collect().await?)
     }
 
+    async fn get_users_by_ids(&self, ids: Vec<i64>) -> DbResult<Vec<User>> {
+        let db = self.get_database_immut().await;
+        let users = db.collection::<User>("users");
+
+        Ok(users
+            .find(doc! {"id": {"$in": ids}})
+            .await?
+            .try_collect()
+            .await?)
+    }
+
     async fn get_random_users(&self, n: u32) -> DbResult<Vec<User>> {
         let db = self.get_database_immut().await;
         let users = db.collection::<User>("users");

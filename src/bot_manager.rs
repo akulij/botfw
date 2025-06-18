@@ -40,32 +40,28 @@ pub struct BotInfo {
 pub static DEFAULT_SCRIPT: &str =
     include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/default_script.js"));
 
-pub struct BotManager<BIG, HM, BIS, HI, FBIS, FHI>
+pub struct BotManager<BIG, BHG, BII, BHI>
 where
-    BIG: FnMut() -> FBIS,
-    FBIS: Future<Output = BIS>,
-    BIS: Iterator<Item = BotInstance>,
-    HM: FnMut(BotInstance) -> FHI,
-    FHI: Future<Output = HI>,
-    HI: Iterator<Item = BotHandler>,
+    BIG: AsyncFnMut() -> BII,            // BotInstance Getter
+    BII: Iterator<Item = BotInstance>,   // BotInstance Iterator
+    BHG: AsyncFnMut(BotInstance) -> BHI, // BotHandler  Getter
+    BHI: Iterator<Item = BotHandler>,    // BotHandler  Iterator
 {
     bot_pool: HashMap<String, BotRunner>,
     bi_getter: BIG,
-    h_mapper: HM,
+    h_mapper: BHG,
 }
 
-impl<BIG, HM, BIS, HI, FBIS, FHI> BotManager<BIG, HM, BIS, HI, FBIS, FHI>
+impl<BIG, BHG, BII, BHI> BotManager<BIG, BHG, BII, BHI>
 where
-    BIG: FnMut() -> FBIS,
-    FBIS: Future<Output = BIS>,
-    BIS: Iterator<Item = BotInstance>,
-    HM: FnMut(BotInstance) -> FHI,
-    FHI: Future<Output = HI>,
-    HI: Iterator<Item = BotHandler>,
+    BIG: AsyncFnMut() -> BII,            // BotInstance Getter
+    BII: Iterator<Item = BotInstance>,   // BotInstance Iterator
+    BHG: AsyncFnMut(BotInstance) -> BHI, // BotHandler  Getter
+    BHI: Iterator<Item = BotHandler>,    // BotHandler  Iterator
 {
-    /// bi_getter - fnmut that returns iterator over BotInstance
-    /// h_map     - fnmut that returns iterator over handlers by BotInstance
-    pub fn with(bi_getter: BIG, h_mapper: HM) -> Self {
+    /// bi_getter - async fnmut that returns iterator over BotInstance
+    /// h_map     - async fnmut that returns iterator over handlers by BotInstance
+    pub fn with(bi_getter: BIG, h_mapper: BHG) -> Self {
         Self {
             bot_pool: Default::default(),
             bi_getter,
