@@ -3,15 +3,19 @@ pub mod bot_handler;
 pub mod bot_manager;
 pub mod botscript;
 pub mod commands;
+pub mod config;
 pub mod db;
 pub mod handlers;
 pub mod message_answerer;
 pub mod mongodb_storage;
+pub mod runtimes;
 pub mod utils;
 
 use bot_manager::BotManager;
 use botscript::application::attach_user_application;
-use botscript::{Runner, RunnerConfig, ScriptError, ScriptResult};
+use botscript::{Runner, ScriptError, ScriptResult};
+use config::result::ConfigError;
+use config::{Provider, RunnerConfig};
 use db::application::Application;
 use db::bots::BotInstance;
 use db::callback_info::CallbackInfo;
@@ -91,11 +95,11 @@ pub struct BotController {
     pub runtime: Arc<Mutex<BotRuntime>>,
 }
 
-pub struct BotRuntime {
-    pub rc: RunnerConfig,
+pub struct BotRuntime<P: Provider> {
+    pub rc: RunnerConfig<P>,
     pub runner: Runner,
 }
-unsafe impl Send for BotRuntime {}
+unsafe impl<P: Provider> Send for BotRuntime<P> {}
 
 impl Drop for BotController {
     fn drop(&mut self) {
@@ -126,7 +130,7 @@ impl BotController {
         let bot = Bot::new(token);
 
         let mut runner = Runner::init_with_db(&mut db)?;
-        runner.call_attacher(|c, o| attach_user_application(c, o, db.clone(), bot.clone()))??;
+        // runner.call_attacher(|c, o| attach_user_application(c, o, db.clone(), bot.clone()))??;
         let rc = runner.init_config(script)?;
         let runtime = Arc::new(Mutex::new(BotRuntime { rc, runner }));
 
@@ -147,6 +151,7 @@ pub enum BotError {
     IoError(#[from] std::io::Error),
     RwLockError(String),
     MAError(#[from] MessageAnswererError),
+    ConfigError(#[from] ConfigError),
 }
 
 pub type BotResult<T> = Result<T, BotError>;

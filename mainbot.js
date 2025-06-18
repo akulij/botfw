@@ -93,14 +93,22 @@ print(JSON.stringify(dialog.buttons))
 
 const config = {
     version: 1.1,
-    timezone: 3,
+    timezone: 5,
 }
 
 const notifications = [
+    {
+        // time: "17:38",
+        time: {once: "17:49"},
+        message: {literal: "show_projects"},
+    },
     // {
-    //     time: "18:14",
+    //     time: {
+    //         hour: 0,
+    //         delta_minutes: 2,
+    //     },
     //     message: {literal: "show_projects"},
-    // },
+    // }
 ]
 
 // {config, dialog}
